@@ -41,7 +41,7 @@ class CombineApp(TemplatesApp):
                         make_option("--observable",dest="observable",action="store",type="string",
                                     ## default="mgg[2650,300,6000]",
                                     ## default="mgg[2650,320,6000]",
-                                    default="mgg[16000,230,10000]",
+                                    default="mgg[16000,230,10000]",  
                                     help="Observable used in the fit default : [%default]",
                                     ),
                         make_option("--observables",dest="observables",action="callback",callback=optpars_utils.Load(scratch=True),type="string",
@@ -190,9 +190,9 @@ class CombineApp(TemplatesApp):
                         ##             ),
                         make_option("--bkg-shapes",dest="bkg_shapes",action="callback",callback=optpars_utils.Load(scratch=True),
                                     type="string",
-                                    default={ "bkg" : {
-                                    "shape" : "data", "norm" : "data"
-                                    }  },
+                                    default={ "bkg" : {                    
+                                    "shape" : "data", "norm" : "data"      
+                                    }  },                                  
                                     help="Background shapes",
                                     ),
                         make_option("--default-model",dest="default_model",action="store",type="string",
@@ -395,6 +395,13 @@ class CombineApp(TemplatesApp):
                                     default="1",
                                     help="Specify luminosity for generating data, background and signal workspaces",
                                     ),
+                        make_option("--rescale-data",dest="rescale_data",action="store_true",default=False,
+                                    help="Scale data to the luminosity specified above",
+                                    ),
+                        make_option("--dataLumi",dest="dataLumi",action="store",type="string",
+                                    default="1",
+                                    help="Specify luminosity for data rescaling",
+                                    ),
                         make_option("--real-data",dest="real_data",action="store_true",
                                     default=True,
                                     help="Running on real data",
@@ -507,6 +514,9 @@ class CombineApp(TemplatesApp):
     def lumiScale(self,name):
         if not self.options.real_data or ( not "data" in name and not "template" in name):
             return self.options.luminosity
+        if self.options.rescale_data:
+            if self.options.real_data or ( "data" in name ):
+                return self.options.dataLumi
         return "1"
     
     ## ------------------------------------------------------------------------------------------------------------
@@ -1454,7 +1464,7 @@ kmax * number of nuisance parameters (source of systematic uncertainties)
                     pdf.SetName("model_%s_%s%s" % (roobs.GetName(),comp,cat))
                 else:
                     pdf.SetName("model_%s%s" % (comp,cat))
-                    
+
                 if add_sideband:
                     ## build normalization variable for sideband
                     sbnorm = self.buildRooVar("%s_norm" %  (sbpdf.GetName()), [], importToWs=False )
@@ -1463,14 +1473,14 @@ kmax * number of nuisance parameters (source of systematic uncertainties)
                         sbnorm.setVal(uncut.sumEntries())
                     else:
                         sbnorm.setVal(reduced.sumEntries())
-                        
+
                 # fit
                 if not useAsimov:
                     # no need to refit if we used asimov dataset
                     if options.real_data:
-                        pdf.fitTo(binned,RooFit.Strategy(2),*fitops)
+                        pdf.fitTo(binned,RooFit.Strategy(2),*fitops)  
                     else:
-                        pdf.fitTo(reduced,RooFit.Strategy(2),*fitops)
+                        pdf.fitTo(reduced,RooFit.Strategy(2),*fitops) 
                     
                 ## template pdfs
                 if options.use_templates:
@@ -1768,7 +1778,7 @@ kmax * number of nuisance parameters (source of systematic uncertainties)
 
     ## ------------------------------------------------------------------------------------------------------------
     def generateSignalDataset(self,options,args):
-        
+
         print "--------------------------------------------------------------------------------------------------------------------------"
         print "generating signal dataset"
         print 
@@ -1846,7 +1856,8 @@ kmax * number of nuisance parameters (source of systematic uncertainties)
                     dsetPdf = self.rooData(treename,weight="%s * weight" %options.signal_scalefactor_forpdf,redo=True)
                     dsetPdf.SetName("ForPdf_%s" %treename)
                 else: dsetPdf=dset
-                
+
+                print "normalization source for signal, chiara: ", dset.sumEntries()                
                 if options.verbose: 
                     dsetPdf.Print()
                     dset.Print()
