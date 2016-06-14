@@ -3,7 +3,7 @@ import FWCore.Utilities.FileUtils as FileUtils
 import FWCore.PythonUtilities.LumiList as LumiList  
 import FWCore.ParameterSet.Types as CfgTypes   
 
-isMC = True;
+isMC = False;
 
 process = cms.Process("tnpAna")
 
@@ -16,25 +16,25 @@ process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_condD
 from Configuration.AlCa.GlobalTag import GlobalTag
 
 if (isMC):
-    process.GlobalTag = GlobalTag(process.GlobalTag, '76X_mcRun2_asymptotic_v12', '')
-    print "76X_mcRun2_asymptotic_v12"
+    process.GlobalTag = GlobalTag(process.GlobalTag, '80X_mcRun2_asymptotic_2016_v3', '')
+    print "80X_mcRun2_asymptotic_2016_v3"
 elif (isMC==False):
-    process.GlobalTag = GlobalTag(process.GlobalTag, '76X_dataRun2_v15', '')
-    print "76X_dataRun2_v15"
+    process.GlobalTag = GlobalTag(process.GlobalTag, '80X_dataRun2_Prompt_v3', '')
+    print "80X_dataRun2_Prompt_v3"
 
 process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32( 1000 )
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32( -1 ) )
 
 process.source = cms.Source("PoolSource",
-                            fileNames = cms.untracked.vstring('/store/group/phys_higgs/cmshgg/musella/flashgg/ExoPhys14_v2/diphotonsPhys14V2/RSGravToGG_kMpl001_M_5000_Tune4C_13TeV_pythia8/ExoPhys14_v2-diphotonsPhys14V2-v0-Phys14DR-PU20bx25_PHYS14_25_V1-v1/150128_133931/0000/myOutputFile_1.root'
+                            fileNames = cms.untracked.vstring('/store/group/phys_higgs/cmshgg/musella/flashgg/ExoPhys14_v2/diphotonsPhys14V2/RSGravToGG_kMpl001_M_5000_Tune4C_13TeV_pythia8/ExoPhys14_v2-diphotonsPhys14V2-v0-Phys14DR-PU20bx25_PHYS14_25_V1-v1/150128_133931/0000/myOutputFile_1.root'     
                             )
 
 # to apply the json file offline
 if (isMC==False):
-    print "applying 2015D rereco json"                                
+    print "applying 2016B prompt json"                                
     process.source.lumisToProcess = CfgTypes.untracked(CfgTypes.VLuminosityBlockRange())  
-    JSONfile = '/afs/cern.ch/user/c/crovelli/public/json2015/rereco76x/singleEle/processedAndSilver_2015D_final.json'
+    JSONfile = '/afs/cern.ch/user/c/crovelli/public/json2016/prompt/singleEle/processedAndGolden_2016B_june10.json'  
     myLumis = LumiList.LumiList(filename = JSONfile).getCMSSWString().split(',')  
     process.source.lumisToProcess.extend(myLumis)                              
 
@@ -46,7 +46,7 @@ process.TFileService = cms.Service("TFileService",fileName = cms.string("OUTPUT"
 
 process.tnpAna = cms.EDAnalyzer('TaPAnalyzer',
                                 VertexTag = cms.untracked.InputTag('offlineSlimmedPrimaryVertices'),
-                                ElectronTag=cms.InputTag('flashggSelectedElectrons'),
+                                ElectronTag=cms.InputTag('flashggElectrons'),
                                 genPhotonExtraTag = cms.InputTag("flashggGenPhotonsExtra"),   
                                 DiPhotonTag = cms.untracked.InputTag('flashggDiPhotons'),
                                 PileUpTag = cms.untracked.InputTag('slimmedAddPileupInfo'),
