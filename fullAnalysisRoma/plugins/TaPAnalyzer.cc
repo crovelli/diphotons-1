@@ -64,7 +64,11 @@ private:
   
   // photons
   bool isGammaPresel( float sceta, float pt, float r9, float chiso);
-  bool isGammaSelected( float rho, float pt, float sceta, float r9, float chiso, float nhiso, float phoiso, float hoe, float sieie, bool passElectronVeto, bool satur);
+  bool isGammaSelected( float rho, float pt, float sceta, float r9, float chiso, float nhiso, float phoiso, float hoe, float sieie, bool passElectronVeto);
+  bool isGammaSelNm1ChIso( float rho, float pt, float sceta, float r9, float phoiso, float hoe, float sieie);
+  bool isGammaSelNm1PhIso( float rho, float pt, float sceta, float r9, float chiso, float hoe, float sieie);
+  bool isGammaSelNm1HoE( float rho, float pt, float sceta, float r9, float chiso, float phoiso, float sieie);
+  bool isGammaSelNm1Sieie( float rho, float pt, float sceta, float r9, float chiso, float phoiso, float hoe );
   int effectiveAreaGammaRegion(float sceta);
   
   // electrons
@@ -156,8 +160,11 @@ private:
   vector <float> gamma_eleveto={};
   vector <int>   gamma_presel={};
   vector <int>   gamma_fullsel={};
+  vector <int>   gamma_nm1chiso={};
+  vector <int>   gamma_nm1phiso={};
+  vector <int>   gamma_nm1hoe={};
+  vector <int>   gamma_nm1sieie={};
   vector <bool>  gamma_matchMC={};
-  vector <bool>  gamma_kSaturated={};
   
   vector <float> ptRatio={};
   vector <float> invMass={};
@@ -314,50 +321,61 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   const edm::TriggerNames &names = iEvent.triggerNames(*triggerBits);
   
   // HLT paths for TnP
-  //string theTnPPathData = "HLT_Ele27_eta2p1_WPLoose_Gsf_v";  
-  //string theTnPPathMc   = "HLT_Ele27_eta2p1_WP75_Gsf_v";  
-  string theTnPPath = "HLT_Ele27_eta2p1_WPLoose_Gsf_v";             // same HLT menu in data and Mc in 76x
-  //if (sampleID>=10000) theTnPPath = theTnPPathData;
-  //else theTnPPath = theTnPPathMc;
-  
+  // string theTnPPath = "HLT_Ele27_WPLoose_Gsf_v";               // 2016 data: 8x MC is without HLT 
+  // string theTnPPath = "HLT_Ele27_WPTight_Gsf_v";               // 2016 data: 8x MC is without HLT 
+  // string theTnPPath = "HLT_Ele35_WPLoose_Gsf_v";               // 2016 data: 8x MC is without HLT 
+  string theTnPPath = "HLT_Ele27_eta2p1_WPLoose_Gsf_v";               // 2016 data: 8x MC is without HLT 
+
   // check if the event fired the TnP path
   bool fired = false;
-  for (unsigned int i = 0, n = triggerBits->size(); i < n; ++i) {
-    string thisPath = names.triggerName(i);      
-    //cout << "checkHLT: " << i << " " << thisPath << endl;
-    if (thisPath.find(theTnPPath)==string::npos) continue;
-    if (!triggerBits->accept(i)) continue;
-    fired = true;
-  }
-
-  if (fired) {   
-      
-    h_selection->Fill(1.,perEveW);
-    
-    // HLT object firing the T&P path
-    for (pat::TriggerObjectStandAlone obj : *triggerObjects) {
-      obj.unpackPathNames(names);
-      
-      vector<string> pathNamesAll = obj.pathNames(false);
-      for (unsigned h = 0, n = pathNamesAll.size(); h < n; ++h) {
-	string thisPath = pathNamesAll[h];
-	
-	// the object has to be associated to the last filter of a succesfully path
-	bool isLF = obj.hasPathName( thisPath, true, false ); 
-	if (!isLF) continue;
-	
-	// the fired path must be our TnP path
-	if ( thisPath.find(theTnPPath)==string::npos) continue;
-	
-	hltTagPt.push_back(obj.pt());
-	hltTagEta.push_back(obj.eta());
-	hltTagPhi.push_back(obj.phi());
-      }	  
+  if (sampleID>=10000) {  // data only
+    for (unsigned int i = 0, n = triggerBits->size(); i < n; ++i) {
+      string thisPath = names.triggerName(i);      
+      //cout << "checkHLT: " << i << " " << thisPath << endl;
+      if (thisPath.find(theTnPPath)==string::npos) continue;
+      if (!triggerBits->accept(i)) continue;
+      fired = true;
     }
+  } else {
+    fired = true;   // MC
+  }
+  
+  if (sampleID>=10000) { 
+
+    if (fired) {   
+      
+      h_selection->Fill(1.,perEveW);
+      
+      // HLT object firing the T&P path
+      for (pat::TriggerObjectStandAlone obj : *triggerObjects) {
+	obj.unpackPathNames(names);
+	
+	vector<string> pathNamesAll = obj.pathNames(false);
+	for (unsigned h = 0, n = pathNamesAll.size(); h < n; ++h) {
+	  string thisPath = pathNamesAll[h];
+	  
+	  // the object has to be associated to the last filter of a succesfully path
+	  bool isLF = obj.hasPathName( thisPath, true, false ); 
+	  if (!isLF) continue;
+	  
+	  // the fired path must be our TnP path
+	  if ( thisPath.find(theTnPPath)==string::npos) continue;
+	  
+	  hltTagPt.push_back(obj.pt());
+	  hltTagEta.push_back(obj.eta());
+	  hltTagPhi.push_back(obj.phi());
+	}	  
+      }
+    } 
+  } else {
+
+    h_selection->Fill(1.,perEveW);
   }
 
-  if (hltTagPt.size()!=hltTagEta.size() || hltTagPt.size()!=hltTagPhi.size()) cout << "problem!" << endl;
-  if ( hltTagPt.size()>0) {
+  if (sampleID>=10000) 
+    if (hltTagPt.size()!=hltTagEta.size() || hltTagPt.size()!=hltTagPhi.size()) cout << "problem!" << endl;
+
+  if ( hltTagPt.size()>0 || sampleID<10000 ) {
     
     h_selection->Fill(2.,perEveW);
     
@@ -444,22 +462,27 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  float elePt  = Electron->pt();
 	  float eleEta = Electron->eta();
 	  float elePhi = Electron->phi();
-	  
-	  // match with selected HLT objects
-	  bool matchHLT = false;
+
+	  // this ele
 	  TLorentzVector thisRecoEle(0,0,0,0);
 	  thisRecoEle.SetPtEtaPhiM(elePt,eleEta,elePhi,0);
 
-	  for (int hltTagC=0; hltTagC<(int)hltTagPt.size(); hltTagC++)
-	    {
-	      TLorentzVector thisHLTob(0,0,0,0);  
-	      float thisHLTpt  = hltTagPt[hltTagC];
-	      float thisHLTeta = hltTagEta[hltTagC];
-	      float thisHLTphi = hltTagPhi[hltTagC];
-	      thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
-	      if(thisRecoEle.DeltaR(thisHLTob)<0.3)
-		matchHLT = true;
+	  // match with selected HLT objects
+	  bool matchHLT = false;
+	  if (sampleID>=10000) {	    
+	    for (int hltTagC=0; hltTagC<(int)hltTagPt.size(); hltTagC++)
+	      {
+		TLorentzVector thisHLTob(0,0,0,0);  
+		float thisHLTpt  = hltTagPt[hltTagC];
+		float thisHLTeta = hltTagEta[hltTagC];
+		float thisHLTphi = hltTagPhi[hltTagC];
+		thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
+		if(thisRecoEle.DeltaR(thisHLTob)<0.3)
+		  matchHLT = true;
 	      }
+	  } else {
+	    matchHLT = true;
+	  }
 
 	  // Match with MC truth
 	  bool matchMC = false; 
@@ -518,12 +541,13 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	}  // tag
       accEleSize = electron_pt.size();
       
-      
+    
       // ----------------------------------------------------
       // 4) at least one probe found
       atLeastOneProbe = false;
       
       std::vector<int> acceptGamma;
+
       for(int phloop = 0; phloop < (int)objs_pho->size(); phloop++ ) {  
 	
 	Ptr<flashgg::Photon> g1 = objs_pho->ptrAt( phloop );
@@ -531,13 +555,14 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	// acceptance
 	float gammaPt    = g1->et();
 	float gammaScEta = (g1->superCluster())->eta();
+
 	if (gammaPt<20) continue;
 	if (fabs(gammaScEta)>2.5) continue;
 	if (fabs(gammaScEta)>1.4442 && fabs(gammaScEta)<1.566) continue;
 	
 	acceptGamma.push_back(phloop);
       }
-      
+
       // Photon candidates in the acceptance
       for(unsigned int iGamma=0; iGamma<acceptGamma.size(); iGamma++)
 	{
@@ -572,15 +597,16 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  
 	  bool passPresel = isGammaPresel( scEta, pt, R9noZS, chIso); 
 
-	  // saturation 
-	  bool isKsaturated = false;
-	  // isKsaturated = g1->checkStatusFlag('kSaturated');   // chiara: there will be no saturation with Zs anyway
-
 	  // full selection
-	  bool passFullSelel = isGammaSelected( rho, pt, scEta, R9noZS, chIso, neuIso, phoIso, HoE, sieienoZS, eleVeto, isKsaturated); 
-	  
+	  bool passFullSelel = isGammaSelected( rho, pt, scEta, R9noZS, chIso, neuIso, phoIso, HoE, sieienoZS, eleVeto);
+
+	  // N-1 selections
+	  bool passNm1ChIso = isGammaSelNm1ChIso( rho, pt, scEta, R9noZS, phoIso, HoE, sieienoZS);
+	  bool passNm1PhIso = isGammaSelNm1PhIso( rho, pt, scEta, R9noZS, chIso, HoE, sieienoZS);
+	  bool passNm1HoE   = isGammaSelNm1HoE( rho, pt, scEta, R9noZS, chIso, phoIso, sieienoZS);
+	  bool passNm1Sieie = isGammaSelNm1Sieie( rho, pt, scEta, R9noZS, chIso, phoIso, HoE );
+
 	  atLeastOneProbe = true;   // denominator = reco photons in acceptance with ET>20      
-	  //if(passPresel)  atLeastOneProbe = true;      
 	
 	  gamma_pt.push_back(pt);
 	  gamma_eta.push_back(scEta);
@@ -596,10 +622,17 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  gamma_eleveto.push_back(g1->passElectronVeto());
 	  gamma_presel.push_back(passPresel);
 	  gamma_fullsel.push_back(passFullSelel);
+	  gamma_nm1chiso.push_back(passNm1ChIso);
+	  gamma_nm1phiso.push_back(passNm1PhIso);
+	  gamma_nm1hoe.push_back(passNm1HoE);
+	  gamma_nm1sieie.push_back(passNm1Sieie);
 	  gamma_matchMC.push_back(matchMC);
-	  gamma_kSaturated.push_back(isKsaturated);
 
 	} // probe
+
+      if (acceptGamma.size()>0 && !atLeastOneProbe) cout << "chiara: abbiamo un problema..." << endl;
+      // if (!atLeastOneProbe) cout << "chiara, non c'e' il probe " << event << " " << run << " " << lumi << endl; 
+
     } // vertex
   } // HLT    
   accGammaSize = gamma_pt.size();   
@@ -644,9 +677,12 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   }
   
   //---fill output tree and reset
-  if (atLeastOneProbe && atLeastOneTag) {
+  if (atLeastOneProbe) {
     h_selection->Fill(4.,perEveW);
-    outTree_->Fill();
+    if (atLeastOneTag) {
+      h_selection->Fill(5.,perEveW);
+      outTree_->Fill();
+    }
   }
       
   //---tag
@@ -674,8 +710,11 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   gamma_eleveto.clear();
   gamma_presel.clear();
   gamma_fullsel.clear();
+  gamma_nm1chiso.clear();
+  gamma_nm1phiso.clear();
+  gamma_nm1hoe.clear();
+  gamma_nm1sieie.clear();
   gamma_matchMC.clear();
-  gamma_kSaturated.clear();
 
   //---invariant mass and ptratio
   ptRatio.clear();
@@ -755,8 +794,11 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("gamma_eleveto", "std::vector<float>", &gamma_eleveto);
     outTree_->Branch("gamma_presel", "std::vector<int>", &gamma_presel);
     outTree_->Branch("gamma_fullsel", "std::vector<int>", &gamma_fullsel);
+    outTree_->Branch("gamma_nm1chiso", "std::vector<int>", &gamma_nm1chiso);
+    outTree_->Branch("gamma_nm1phiso", "std::vector<int>", &gamma_nm1phiso);
+    outTree_->Branch("gamma_nm1hoe", "std::vector<int>", &gamma_nm1hoe);
+    outTree_->Branch("gamma_nm1sieie", "std::vector<int>", &gamma_nm1sieie);
     outTree_->Branch("gamma_matchMC", "std::vector<bool>", &gamma_matchMC );
-    outTree_->Branch("gamma_kSaturated", "std::vector<bool>", &gamma_kSaturated );
 
     outTree_->Branch("ptRatio","std::vector<float>", &ptRatio);
     outTree_->Branch("invMass","std::vector<float>", &invMass);
@@ -831,7 +873,13 @@ bool TaPAnalyzer::isMediumEle(float scEta, float hoe, float dphi, float deta, fl
     okConv  = passConvVeto;
   }
 
-  bool okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
+  // chiara: for the moment we remove the deltaEta cut in EE
+  bool okFullSel;
+  if (fabs(scEta)<1.479) 
+    okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
+  else
+    okFullSel = okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;    
+
   return okFullSel;
 }
 
@@ -869,7 +917,13 @@ bool TaPAnalyzer::isTightEle(float scEta, float hoe, float dphi, float deta, flo
 	okConv  = passConvVeto;
       }
     
-    bool okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
+    // chiara: for the moment we remove the deltaEta cut in EE
+    bool okFullSel;
+    if (fabs(scEta)<1.479) 
+      okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
+    else
+      okFullSel = okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;    
+
     return okFullSel;
 }
 
@@ -936,7 +990,7 @@ bool TaPAnalyzer::isGammaPresel( float sceta, float pt, float r9, float chiso) {
     return isPresel;
 }
 
-bool TaPAnalyzer::isGammaSelected( float rho, float pt, float sceta, float r9, float chiso, float nhiso, float phoiso, float hoe, float sieie, bool passElectronVeto, bool satur) {
+bool TaPAnalyzer::isGammaSelected( float rho, float pt, float sceta, float r9, float chiso, float nhiso, float phoiso, float hoe, float sieie, bool passElectronVeto) {
 
     // classes: 0 = EB highR9, 1 = EB low R9, 2 = EE high R9, 3 = EE lowR9
     int etaclass = fabs(sceta)>1.5;
@@ -947,7 +1001,6 @@ bool TaPAnalyzer::isGammaSelected( float rho, float pt, float sceta, float r9, f
     float chiso_cut[4]     = { 5., 5., 5., 5. };
     float phoiso_cut[4]    = { 2.75, 2.75, 2., 2. };
     float sieie_cut[4]     = { 1.05e-02, 1.05e-02, 2.80e-02, 2.80e-02 };   
-    float sieieKSat_cut[4] = { 0.0112, 0.0112, 0.03, 0.03 };   
     float sieie_infCut[4]  = { 0.001, 0.001, 0.001, 0.001 };
     float hoe_cut[4]       = { 0.05, 0.05, 0.05, 0.05 };                   
   
@@ -969,15 +1022,138 @@ bool TaPAnalyzer::isGammaSelected( float rho, float pt, float sceta, float r9, f
     if (chiso > chiso_cut[theclass])      return false;
     if (corrPhIso > phoiso_cut[theclass]) return false;
     if (hoe > hoe_cut[theclass])          return false;
-    if (!satur) {
-      if (sieie > sieie_cut[theclass])    return false;
-    } else {
-      if (sieie > sieieKSat_cut[theclass]) return false;      
-    }
+    if (sieie > sieie_cut[theclass])      return false;
     if (sieie < sieie_infCut[theclass])   return false;
 
     // electron veto 
     // if (!passElectronVeto) return false;
+
+    return true;
+} 
+
+bool TaPAnalyzer::isGammaSelNm1ChIso( float rho, float pt, float sceta, float r9, float phoiso, float hoe, float sieie) {
+
+    // classes: 0 = EB highR9, 1 = EB low R9, 2 = EE high R9, 3 = EE lowR9
+    int etaclass = fabs(sceta)>1.5;
+    int r9class  = r9<0.94;                   
+    int theclass = 2.*etaclass + r9class;                  
+
+    // cuts - hardcoded, v1
+    float phoiso_cut[4]    = { 2.75, 2.75, 2., 2. };
+    float sieie_cut[4]     = { 1.05e-02, 1.05e-02, 2.80e-02, 2.80e-02 };   
+    float sieie_infCut[4]  = { 0.001, 0.001, 0.001, 0.001 };
+    float hoe_cut[4]       = { 0.05, 0.05, 0.05, 0.05 };                   
+  
+    // effective areas - hardcoded 
+    float phIsoAE[5] = { 0.17,0.14,0.11,0.14,0.22 };
+
+    // alpha values - hardcoded
+    float phIsoAlpha[5] = { 2.5,2.5,2.5,2.5,2.5 };
+
+    // kappa values - hardcoded
+    float phIsoKappa[5]= { 0.0045,0.0045,0.0045,0.003,0.003 };
+
+    // EA corrections 
+    int theEAregion  = effectiveAreaGammaRegion(sceta);   
+
+    // full correction
+    float corrPhIso = phIsoAlpha[theEAregion] + phoiso - rho*phIsoAE[theEAregion] - phIsoKappa[theEAregion]*pt;
+
+    if (corrPhIso > phoiso_cut[theclass]) return false;
+    if (hoe > hoe_cut[theclass])          return false;
+    if (sieie > sieie_cut[theclass])      return false;
+    if (sieie < sieie_infCut[theclass])   return false;
+
+    return true;
+} 
+
+bool TaPAnalyzer::isGammaSelNm1PhIso( float rho, float pt, float sceta, float r9, float chiso, float hoe, float sieie) {
+
+    // classes: 0 = EB highR9, 1 = EB low R9, 2 = EE high R9, 3 = EE lowR9
+    int etaclass = fabs(sceta)>1.5;
+    int r9class  = r9<0.94;                   
+    int theclass = 2.*etaclass + r9class;                  
+
+    // cuts - hardcoded, v1
+    float chiso_cut[4]     = { 5., 5., 5., 5. };
+    float sieie_cut[4]     = { 1.05e-02, 1.05e-02, 2.80e-02, 2.80e-02 };   
+    float sieie_infCut[4]  = { 0.001, 0.001, 0.001, 0.001 };
+    float hoe_cut[4]       = { 0.05, 0.05, 0.05, 0.05 };                   
+  
+    if (chiso > chiso_cut[theclass])      return false;
+    if (hoe > hoe_cut[theclass])          return false;
+    if (sieie > sieie_cut[theclass])      return false;
+    if (sieie < sieie_infCut[theclass])   return false;
+
+    return true;
+} 
+
+bool TaPAnalyzer::isGammaSelNm1HoE( float rho, float pt, float sceta, float r9, float chiso, float phoiso, float sieie) {
+
+    // classes: 0 = EB highR9, 1 = EB low R9, 2 = EE high R9, 3 = EE lowR9
+    int etaclass = fabs(sceta)>1.5;
+    int r9class  = r9<0.94;                   
+    int theclass = 2.*etaclass + r9class;                  
+
+    // cuts - hardcoded, v1
+    float chiso_cut[4]     = { 5., 5., 5., 5. };
+    float phoiso_cut[4]    = { 2.75, 2.75, 2., 2. };
+    float sieie_cut[4]     = { 1.05e-02, 1.05e-02, 2.80e-02, 2.80e-02 };   
+    float sieie_infCut[4]  = { 0.001, 0.001, 0.001, 0.001 };
+  
+    // effective areas - hardcoded 
+    float phIsoAE[5] = { 0.17,0.14,0.11,0.14,0.22 };
+
+    // alpha values - hardcoded
+    float phIsoAlpha[5] = { 2.5,2.5,2.5,2.5,2.5 };
+
+    // kappa values - hardcoded
+    float phIsoKappa[5]= { 0.0045,0.0045,0.0045,0.003,0.003 };
+
+    // EA corrections 
+    int theEAregion  = effectiveAreaGammaRegion(sceta);   
+
+    // full correction
+    float corrPhIso = phIsoAlpha[theEAregion] + phoiso - rho*phIsoAE[theEAregion] - phIsoKappa[theEAregion]*pt;
+
+    if (chiso > chiso_cut[theclass])      return false;
+    if (corrPhIso > phoiso_cut[theclass]) return false;
+    if (sieie > sieie_cut[theclass])      return false;
+    if (sieie < sieie_infCut[theclass])   return false;
+
+    return true;
+} 
+
+bool TaPAnalyzer::isGammaSelNm1Sieie( float rho, float pt, float sceta, float r9, float chiso, float phoiso, float hoe ) {
+
+    // classes: 0 = EB highR9, 1 = EB low R9, 2 = EE high R9, 3 = EE lowR9
+    int etaclass = fabs(sceta)>1.5;
+    int r9class  = r9<0.94;                   
+    int theclass = 2.*etaclass + r9class;                  
+
+    // cuts - hardcoded, v1
+    float chiso_cut[4]     = { 5., 5., 5., 5. };
+    float phoiso_cut[4]    = { 2.75, 2.75, 2., 2. };
+    float hoe_cut[4]       = { 0.05, 0.05, 0.05, 0.05 };                   
+  
+    // effective areas - hardcoded 
+    float phIsoAE[5] = { 0.17,0.14,0.11,0.14,0.22 };
+
+    // alpha values - hardcoded
+    float phIsoAlpha[5] = { 2.5,2.5,2.5,2.5,2.5 };
+
+    // kappa values - hardcoded
+    float phIsoKappa[5]= { 0.0045,0.0045,0.0045,0.003,0.003 };
+
+    // EA corrections 
+    int theEAregion  = effectiveAreaGammaRegion(sceta);   
+
+    // full correction
+    float corrPhIso = phIsoAlpha[theEAregion] + phoiso - rho*phIsoAE[theEAregion] - phIsoKappa[theEAregion]*pt;
+
+    if (chiso > chiso_cut[theclass])      return false;
+    if (corrPhIso > phoiso_cut[theclass]) return false;
+    if (hoe > hoe_cut[theclass])          return false;
 
     return true;
 } 
