@@ -41,8 +41,8 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
 
   // chiara
   TString files[NSPECIES];
-  files[0]="/afs/cern.ch/user/c/crovelli/myWorkspace/public/TaP_fall15_Moriond16_v1/formattedZ/Formatted_singleEle2015Dv1.root";
-  files[1]="/afs/cern.ch/user/c/crovelli/myWorkspace/public/TaP_fall15_Moriond16_v1/formattedZ/Formatted_DYLL_largeAndExtension__all1pb.root";
+  files[0]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_singleEle2016B.root";
+  files[1]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_DYLL.root";
 
   TString plotsDir="./tnpPlots/";
   TFile* fOut=new TFile("tnpHistos_"+suffix+".root","RECREATE");
@@ -55,18 +55,36 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   variables[0]="mass";
   variables[1]="probe_pt";
   variables[2]="nvtx";
+  /*
+  variables[0]="probe_chiso";    
+  variables[1]="probe_phoiso";    
+  variables[2]="probe_sieie";    
+  variables[3]="probe_hoe";    
+  */
 
   // chiara
   TString units[NVARIABLES];
   units[0]="GeV";
   units[1]="GeV";
   units[2]="";
-  
+  /*
+  units[0]="GeV";
+  units[1]="GeV";
+  units[2]="";
+  units[3]="";  
+  */
+
   // chiara
   int nbins[NVARIABLES];
-  nbins[0]=40;
+  nbins[0]=80;
   nbins[1]=75;
   nbins[2]=30;
+  /*
+  nbins[0]=80;
+  nbins[1]=80;
+  nbins[2]=80;
+  nbins[3]=80;
+  */
 
   // chiara
   float range[NVARIABLES][2]; // N variables, min, max
@@ -76,12 +94,28 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   range[1][1]=500.;
   range[2][0]=0.;
   range[2][1]=30.;
+  /*
+  range[0][0]=0.;
+  range[0][1]=200.;   // 10
+  range[1][0]=0.;
+  range[1][1]=200.;  // 10
+  range[2][0]=0.;
+  range[2][1]=1.;  // 1
+  range[3][0]=0.;
+  range[3][1]=0.15; 
+  */
 
   // chiara
   TString xaxisLabel[NVARIABLES];
   xaxisLabel[0]="m_{ee}";
   xaxisLabel[1]="p_{T} probe";
   xaxisLabel[2]="number of vertices";
+  /*
+  xaxisLabel[0]="chIso";
+  xaxisLabel[1]="phIso";
+  xaxisLabel[2]="sIeIe";
+  xaxisLabel[3]="H/E";
+  */
 
   TString binSize[NVARIABLES];
 
@@ -100,10 +134,18 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
 
   // chiara
   TString cut[NCUTS];
+  // selection for event distributions (mass, #vertices)
   cut[0]="(mass>70 && mass<110 && abs(tag_absEta)<1.5 && abs(probe_absEta)<1.5)*";
   cut[1]="(mass>70 && mass<110 && (abs(tag_absEta)<1.5 && abs(probe_absEta)>1.5) || (abs(tag_absEta)>1.5 && abs(probe_absEta)<1.5) )*";
   //cut[0]="(probe_fullsel && mass>70 && mass<110 && abs(tag_absEta)<1.5 && abs(probe_absEta)<1.5)*";
   //cut[1]="(probe_fullsel && mass>70 && mass<110 && (abs(tag_absEta)<1.5 && abs(probe_absEta)>1.5) || (abs(tag_absEta)>1.5 && abs(probe_absEta)<1.5) )*";
+
+  // selection for probe distributions
+  //cut[0]="(mass>70 && mass<110 && abs(probe_absEta)<1.5)*";
+  //cut[1]="(mass>70 && mass<110 && abs(probe_absEta)>1.5 && abs(tag_absEta)<1.5)*";
+  //cut[0]="(probe_nm1phiso && mass>70 && mass<110 && abs(probe_absEta)<1.5)*";
+  //cut[1]="(probe_nm1phiso && mass>70 && mass<110 && abs(probe_absEta)>1.5 && abs(tag_absEta)<1.5)*";
+
 
   char lumistr[100];
   sprintf(lumistr,"%.2f",lumi);
@@ -143,6 +185,11 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
 	}
 	std::cout << "Done " << histoName << std::endl;
       }
+
+      cout << "chiara, yield data, cut0: " << histos[0][0][0]->Integral() << endl;
+      cout << "chiara, yield MC, cut0: "   << histos[1][0][0]->Integral() << endl;
+      cout << "chiara, yield data, cut1: " << histos[0][1][0]->Integral() << endl;
+      cout << "chiara, yield MC, cut1: "   << histos[1][1][0]->Integral() << endl;
 
       // chiara: ad hoc to have correctly normalized
       /*
