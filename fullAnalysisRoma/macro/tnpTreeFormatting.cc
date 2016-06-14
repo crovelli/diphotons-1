@@ -21,7 +21,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   TTree *treeOrig = 0;
   TH1F  *h_sumW = 0;
 
-  fileOrig = TFile::Open(TString("/cmsrm/pc28_2/crovelli/data/Exo/TaP_EXOdata25ns_7_6_3_rereco76x/")+TString(filename));
+  fileOrig = TFile::Open(TString("/cmsrm/pc28_2/crovelli/data/Exo/")+TString(filename));
   if( fileOrig ) {
     fileOrig->cd();
     treeOrig = (TTree*)fileOrig->Get("tnpAna/TaPtree");
@@ -44,7 +44,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   int nentriesOrig = treeOrig->GetEntries();   
 
   // Tree for the final format
-  TFile *fileNew = TFile::Open(TString("Formatted_")+TString(filename),"recreate");
+  TFile *fileNew = TFile::Open(TString("/tmp/crovelli/Formatted_")+TString(filename),"recreate");
   fileNew->ls();
   fileNew->cd();
   TDirectory *myDir = (TDirectory*)fileNew->mkdir("tnpAna");
@@ -78,9 +78,16 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   vector<float>   *gamma_eta = 0;
   vector<int>     *gamma_presel   = 0;
   vector<int>     *gamma_fullsel  = 0;
+  vector<int>     *gamma_nm1chiso = 0;
+  vector<int>     *gamma_nm1phiso = 0;
+  vector<int>     *gamma_nm1hoe = 0;
+  vector<int>     *gamma_nm1sieie = 0;
   vector<float>   *gamma_eleveto = 0;
   vector<bool>    *gamma_matchMC  = 0;
-  vector<bool>    *gamma_kSaturated = 0;
+  vector<float>   *gamma_sieie = 0;
+  vector<float>   *gamma_hoe = 0;
+  vector<float>   *gamma_chiso = 0;
+  vector<float>   *gamma_phoiso = 0;   
   vector<float>   *invMass    = 0;
   vector<float>   *invMassRaw = 0;
   vector<int>     *eleIndex   = 0;
@@ -105,9 +112,16 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   TBranch        *b_gamma_eta;   //!   
   TBranch        *b_gamma_presel; 
   TBranch        *b_gamma_fullsel; 
+  TBranch        *b_gamma_nm1chiso;
+  TBranch        *b_gamma_nm1phiso;
+  TBranch        *b_gamma_nm1hoe;
+  TBranch        *b_gamma_nm1sieie;
   TBranch        *b_gamma_eleveto; 
   TBranch        *b_gamma_matchMC;
-  TBranch        *b_gamma_kSaturated;
+  TBranch        *b_gamma_sieie;
+  TBranch        *b_gamma_hoe;
+  TBranch        *b_gamma_chiso;
+  TBranch        *b_gamma_phoiso;
   TBranch        *b_invMass; 
   TBranch        *b_invMassRaw; 
   TBranch        *b_eleIndex;  
@@ -132,9 +146,16 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   treeOrig->SetBranchAddress("gamma_eta", &gamma_eta, &b_gamma_eta);
   treeOrig->SetBranchAddress("gamma_presel", &gamma_presel, &b_gamma_presel);
   treeOrig->SetBranchAddress("gamma_fullsel", &gamma_fullsel, &b_gamma_fullsel);
+  treeOrig->SetBranchAddress("gamma_nm1chiso", &gamma_nm1chiso, &b_gamma_nm1chiso);
+  treeOrig->SetBranchAddress("gamma_nm1phiso", &gamma_nm1phiso, &b_gamma_nm1phiso);
+  treeOrig->SetBranchAddress("gamma_nm1hoe", &gamma_nm1hoe, &b_gamma_nm1hoe);
+  treeOrig->SetBranchAddress("gamma_nm1sieie", &gamma_nm1sieie, &b_gamma_nm1sieie);
   treeOrig->SetBranchAddress("gamma_eleveto", &gamma_eleveto, &b_gamma_eleveto);
   treeOrig->SetBranchAddress("gamma_matchMC", &gamma_matchMC, &b_gamma_matchMC);        
-  treeOrig->SetBranchAddress("gamma_kSaturated", &gamma_kSaturated, &b_gamma_kSaturated);        
+  treeOrig->SetBranchAddress("gamma_sieie", &gamma_sieie, &b_gamma_sieie);        
+  treeOrig->SetBranchAddress("gamma_hoe", &gamma_hoe, &b_gamma_hoe);        
+  treeOrig->SetBranchAddress("gamma_chiso", &gamma_chiso, &b_gamma_chiso);        
+  treeOrig->SetBranchAddress("gamma_phoiso", &gamma_phoiso, &b_gamma_phoiso);        
   treeOrig->SetBranchAddress("invMass", &invMass, &b_invMass);
   treeOrig->SetBranchAddress("invMassRaw", &invMassRaw, &b_invMassRaw);
   treeOrig->SetBranchAddress("eleIndex", &eleIndex, &b_eleIndex);
@@ -144,10 +165,17 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   float tag_pt, tag_absEta;
   int tag_matchMC;
   float probe_pt, probe_absEta;
-  int probe_matchMC, probe_kSaturated;
+  float probe_eta;
+  int probe_matchMC; 
   int probe_fullsel;
+  int probe_nm1chiso;
+  int probe_nm1phiso;
+  int probe_nm1hoe;
+  int probe_nm1sieie;
   int probe_totsel;
   int probe_eleveto;
+  float probe_sieie, probe_hoe;
+  float probe_chiso, probe_phoiso;
   float mass;
   float massRaw;
   float xsecWeight, weight;
@@ -166,11 +194,19 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
     theTreeNew->Branch("tag_matchMC",&tag_matchMC,"tag_matchMC/I");
     theTreeNew->Branch("probe_pt",&probe_pt,"probe_pt/F");
     theTreeNew->Branch("probe_absEta",&probe_absEta,"probe_absEta/F");
+    theTreeNew->Branch("probe_eta",&probe_eta,"probe_eta/F");
     theTreeNew->Branch("probe_fullsel", &probe_fullsel, "probe_fullsel/I");
+    theTreeNew->Branch("probe_nm1chiso", &probe_nm1chiso, "probe_nm1chiso/I");
+    theTreeNew->Branch("probe_nm1phiso", &probe_nm1phiso, "probe_nm1phiso/I");
+    theTreeNew->Branch("probe_nm1hoe", &probe_nm1hoe, "probe_nm1hoe/I");
+    theTreeNew->Branch("probe_nm1sieie", &probe_nm1sieie, "probe_nm1sieie/I");
     theTreeNew->Branch("probe_totsel", &probe_totsel, "probe_totsel/I");
     theTreeNew->Branch("probe_matchMC",&probe_matchMC,"probe_matchMC/I");
-    theTreeNew->Branch("probe_kSaturated",&probe_kSaturated,"probe_kSaturated/I");
     theTreeNew->Branch("probe_eleveto",&probe_eleveto,"probe_eleveto/I");
+    theTreeNew->Branch("probe_sieie",&probe_sieie,"probe_sieie/F");
+    theTreeNew->Branch("probe_hoe",&probe_hoe,"probe_hoe/F");
+    theTreeNew->Branch("probe_chiso",&probe_chiso,"probe_chiso/F");
+    theTreeNew->Branch("probe_phoiso",&probe_phoiso,"probe_phoiso/F");
     theTreeNew->Branch("mass", &mass, "mass/F");
     theTreeNew->Branch("massRaw", &massRaw, "massRaw/F");
     theTreeNew->Branch("xsecWeight", &xsecWeight, "xsecWeight/F");
@@ -202,13 +238,17 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
 	if (numGenLevel==2 && !electron_matchMC->at(eleIndex->at(ii))) continue;   
 	if (numGenLevel==2 && !gamma_matchMC->at(gammaIndex->at(ii)))  continue;
       }
-    
+
       /*
       // To apply smearings and scales
       float smearEBlowEta     = 0.013898;
       float smearEBhighEta    = 0.0189895;
       float smearEElowEta     = 0.027686;
       float smearEEhighEta    = 0.031312;
+      if (run<273157) {
+	
+      }
+
       float theGaussMean      = 1.;
       float theFirstSmear = 0.;
       if (fabs(electron_eta->at(eleIndex->at(ii)))<1) theFirstSmear = smearEBlowEta;
@@ -223,6 +263,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
       float theGaussSigma = 0.5 * sqrt (theFirstSmear*theFirstSmear + theSecondSmear*theSecondSmear);
       float fromGauss = myRandom.Gaus(theGaussMean,theGaussSigma);
       mass = mass*fromGauss;
+
 
       // Just for check: scale correction for data
       float scaleEBlowEta  = 2./(0.99544 + 0.99882);
@@ -250,11 +291,22 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
       tag_matchMC = electron_matchMC->at(eleIndex->at(ii));
       probe_pt = gamma_pt->at(gammaIndex->at(ii));
       probe_absEta  = fabs(gamma_eta->at(gammaIndex->at(ii)));
+      probe_eta  = gamma_eta->at(gammaIndex->at(ii));
       probe_fullsel = gamma_fullsel->at(gammaIndex->at(ii));  
+      probe_nm1chiso = gamma_nm1chiso->at(gammaIndex->at(ii));
+      probe_nm1phiso = gamma_nm1phiso->at(gammaIndex->at(ii));
+      probe_nm1hoe   = gamma_nm1hoe->at(gammaIndex->at(ii));
+      probe_nm1sieie = gamma_nm1sieie->at(gammaIndex->at(ii));
       probe_totsel = gamma_fullsel->at(gammaIndex->at(ii)) && gamma_presel->at(gammaIndex->at(ii)); 
       probe_matchMC = gamma_matchMC->at(gammaIndex->at(ii));
-      probe_kSaturated = gamma_kSaturated->at(gammaIndex->at(ii));
       probe_eleveto = gamma_eleveto->at(gammaIndex->at(ii));
+      probe_sieie = gamma_sieie->at(gammaIndex->at(ii)); 
+      probe_hoe = gamma_hoe->at(gammaIndex->at(ii)); 
+      probe_chiso = gamma_chiso->at(gammaIndex->at(ii)); 
+      probe_phoiso = gamma_phoiso->at(gammaIndex->at(ii)); 
+
+      // computing corrected photon isolation
+      
 
       // weights
       if (run==1) {   // MC                                                                                                                   
