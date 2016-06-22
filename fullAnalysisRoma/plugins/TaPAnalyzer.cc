@@ -70,13 +70,16 @@ private:
   bool isGammaSelNm1HoE( float rho, float pt, float sceta, float r9, float chiso, float phoiso, float sieie);
   bool isGammaSelNm1Sieie( float rho, float pt, float sceta, float r9, float chiso, float phoiso, float hoe );
   int effectiveAreaGammaRegion(float sceta);
+  float gammaCorrPhIso( float rho, float pt, float sceta, float phoiso);
   
   // electrons
   float effectiveAreaEle03(float sceta);
+  float effectiveArea2016Ele03(float sceta);
   Ptr<reco::Vertex> chooseElectronVertex( Ptr<flashgg::Electron> &elec, const std::vector<edm::Ptr<reco::Vertex> > &vertices );
   bool isMediumEle(float scEta, float hoe, float dphi, float deta, float sIeIe, float ep, float d0, float dz, float reliso, int missHits, bool passConvVeto) ;
   bool isTightEle(float scEta, float hoe, float dphi, float deta, float sIeIe, float ep, float d0, float dz, float reliso, int missHits, bool passConvVeto) ;
-  
+  bool isHLTSafeEle(float scEta, float hoe, float dphi, float detaOut, float sIeIe, float ep, float reliso, int missHits) ;
+
   void bookOutputTree();
   
   // collections
@@ -140,6 +143,8 @@ private:
   vector <float> electron_scRawEne={};
   vector <float> electron_eta={};
   vector <float> electron_phi={};
+  vector <float> electron_r9={};
+  vector <bool>  isTagHltSafeEle={};
   vector <bool>  isTagTightEle={};
   vector <bool>  isTagMediumEle={};
   vector <bool>  electron_matchHLT={};
@@ -156,6 +161,7 @@ private:
   vector <float> gamma_ene={};
   vector <float> gamma_chiso={};
   vector <float> gamma_phoiso={};
+  vector <float> gamma_corrphoiso={};
   vector <float> gamma_neuiso={};
   vector <float> gamma_eleveto={};
   vector <int>   gamma_presel={};
@@ -493,8 +499,9 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 
 	  // ID
 	  float HoE = Electron->hcalOverEcal();
-	  float DeltaPhiIn = Electron->deltaPhiSuperClusterTrackAtVtx();
-	  float DeltaEtaIn = Electron->deltaEtaSuperClusterTrackAtVtx();
+	  float DeltaPhiIn  = Electron->deltaPhiSuperClusterTrackAtVtx();
+	  float DeltaEtaIn  = Electron->deltaEtaSuperClusterTrackAtVtx();
+	  float DeltaEtaOut = Electron->deltaEtaSeedClusterTrackAtCalo();
 	  float Full5x5Sieie = Electron->full5x5_sigmaIetaIeta(); 
 	  float ecalEne = Electron->ecalEnergy();
 	  float OneOverEoP;
@@ -507,7 +514,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  
 	  // isolation with rho correction
 	  reco::GsfElectron::PflowIsolationVariables pfIso = Electron->pfIsolationVariables();
-	  float corrHadPlusPho = pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - rhoEle*effectiveAreaEle03(scEta);    
+	  float corrHadPlusPho = pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - rhoEle*effectiveArea2016Ele03(scEta);    
 	  if (corrHadPlusPho<=0) corrHadPlusPho = 0.;
 	  float absIsoWeffArea = pfIso.sumChargedHadronPt + corrHadPlusPho;
 	  float relIso = absIsoWeffArea/elePt;
@@ -523,10 +530,11 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  bool passConversionVeto = !(Electron->hasMatchedConversion());
 	  
 	  // All together
-	  bool mediumEle = isMediumEle(scEta, HoE, DeltaPhiIn, DeltaEtaIn, Full5x5Sieie, OneOverEoP, d0, dz, relIso, mHits, passConversionVeto) ;
-	  bool tightEle = isTightEle(scEta, HoE, DeltaPhiIn, DeltaEtaIn, Full5x5Sieie, OneOverEoP, d0, dz, relIso, mHits, passConversionVeto) ;
+	  bool hltSafeEle = isHLTSafeEle(scEta, HoE, DeltaPhiIn, DeltaEtaOut, Full5x5Sieie, OneOverEoP, relIso, mHits) ;                             
+	  bool mediumEle  = isMediumEle(scEta, HoE, DeltaPhiIn, DeltaEtaIn, Full5x5Sieie, OneOverEoP, d0, dz, relIso, mHits, passConversionVeto) ;
+	  bool tightEle   = isTightEle(scEta, HoE, DeltaPhiIn, DeltaEtaIn, Full5x5Sieie, OneOverEoP, d0, dz, relIso, mHits, passConversionVeto) ;
 	  
-	  if (mediumEle || tightEle) atLeastOneTag = true;
+	  if (hltSafeEle && (mediumEle || tightEle)) atLeastOneTag = true;
 	  
 	  // Variables for the tree - for each electron in the acceptance - todo
 	  electron_pt.push_back(elePt);
@@ -534,6 +542,8 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  electron_scRawEne.push_back(Electron->superCluster()->rawEnergy());
 	  electron_eta.push_back(Electron->superCluster()->eta());
 	  electron_phi.push_back(Electron->superCluster()->phi());
+	  electron_r9.push_back(Electron->full5x5_r9());    
+	  isTagHltSafeEle.push_back(hltSafeEle);
 	  isTagTightEle.push_back(tightEle);
 	  isTagMediumEle.push_back(mediumEle);
 	  electron_matchHLT.push_back(matchHLT);
@@ -600,6 +610,9 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  // full selection
 	  bool passFullSelel = isGammaSelected( rho, pt, scEta, R9noZS, chIso, neuIso, phoIso, HoE, sieienoZS, eleVeto);
 
+	  // corrected photon isolation
+	  float corrPhIso = gammaCorrPhIso( rho, pt, scEta, phoIso ); 
+
 	  // N-1 selections
 	  bool passNm1ChIso = isGammaSelNm1ChIso( rho, pt, scEta, R9noZS, phoIso, HoE, sieienoZS);
 	  bool passNm1PhIso = isGammaSelNm1PhIso( rho, pt, scEta, R9noZS, chIso, HoE, sieienoZS);
@@ -618,6 +631,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  gamma_ene.push_back(g1->energy());
 	  gamma_chiso.push_back(g1->egChargedHadronIso());
 	  gamma_phoiso.push_back(g1->egPhotonIso());
+	  gamma_corrphoiso.push_back(corrPhIso);
 	  gamma_neuiso.push_back(g1->egNeutralHadronIso());
 	  gamma_eleveto.push_back(g1->passElectronVeto());
 	  gamma_presel.push_back(passPresel);
@@ -691,6 +705,8 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   electron_scRawEne.clear();
   electron_eta.clear();
   electron_phi.clear();
+  electron_r9.clear();
+  isTagHltSafeEle.clear();
   isTagTightEle.clear();
   isTagMediumEle.clear();
   electron_matchHLT.clear();
@@ -706,6 +722,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   gamma_ene.clear();
   gamma_chiso.clear();
   gamma_phoiso.clear();
+  gamma_corrphoiso.clear();
   gamma_neuiso.clear();
   gamma_eleveto.clear();
   gamma_presel.clear();
@@ -774,6 +791,8 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("electron_scRawEne", "std::vector<float>", &electron_scRawEne);
     outTree_->Branch("electron_eta", "std::vector<float>", &electron_eta);
     outTree_->Branch("electron_phi", "std::vector<float>", &electron_phi);
+    outTree_->Branch("electron_r9", "std::vector<float>", &electron_r9);
+    outTree_->Branch("isTagHltSafeEle", "std::vector<bool>", &isTagHltSafeEle );
     outTree_->Branch("isTagTightEle", "std::vector<bool>", &isTagTightEle );
     outTree_->Branch("isTagMediumEle", "std::vector<bool>", &isTagMediumEle );
     outTree_->Branch("electron_matchHLT", "std::vector<bool>", &electron_matchHLT );
@@ -790,6 +809,7 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("gamma_ene", "std::vector<float>", &gamma_ene);
     outTree_->Branch("gamma_chiso", "std::vector<float>", &gamma_chiso);
     outTree_->Branch("gamma_phoiso", "std::vector<float>", &gamma_phoiso);
+    outTree_->Branch("gamma_corrphoiso", "std::vector<float>", &gamma_corrphoiso);
     outTree_->Branch("gamma_neuiso", "std::vector<float>", &gamma_neuiso);
     outTree_->Branch("gamma_eleveto", "std::vector<float>", &gamma_eleveto);
     outTree_->Branch("gamma_presel", "std::vector<int>", &gamma_presel);
@@ -824,6 +844,22 @@ float TaPAnalyzer::effectiveAreaEle03(float theEta) {
     return theEA;
 }
 
+// Spring16 effective areas, see
+// https://indico.cern.ch/event/482673/contributions/2187022/attachments/1282446/1905912/talk_electron_ID_spring16.pdf
+float TaPAnalyzer::effectiveArea2016Ele03(float theEta) {
+  
+    float theEA = -999;			   
+    if(fabs(theEta) < 1) theEA = 0.1703; 
+    else if(fabs(theEta) < 1.479) theEA = 0.1715;
+    else if(fabs(theEta) < 2.0) theEA = 0.1213;
+    else if(fabs(theEta) < 2.2) theEA = 0.1230;
+    else if(fabs(theEta) < 2.3) theEA = 0.1635;
+    else if(fabs(theEta) < 2.4) theEA = 0.1937;
+    else if(fabs(theEta) < 2.5) theEA = 0.2393; 
+
+    return theEA;
+}
+
 // Electron vertex choice
 Ptr<reco::Vertex> TaPAnalyzer::chooseElectronVertex( Ptr<flashgg::Electron> &elec, const std::vector<edm::Ptr<reco::Vertex> > &vertices ) {
   
@@ -839,7 +875,7 @@ Ptr<reco::Vertex> TaPAnalyzer::chooseElectronVertex( Ptr<flashgg::Electron> &ele
     return vertices[min_dz_vtx];
 }
 
-// Egamma Cut based ID
+// Egamma Cut based ID 2015
 bool TaPAnalyzer::isMediumEle(float scEta, float hoe, float dphi, float deta, float sIeIe,
 			      float ep, float d0, float dz, float reliso, int missHits, bool passConvVeto) 
 {
@@ -883,7 +919,7 @@ bool TaPAnalyzer::isMediumEle(float scEta, float hoe, float dphi, float deta, fl
   return okFullSel;
 }
 
-
+// Egamma Cut based ID 2015
 bool TaPAnalyzer::isTightEle(float scEta, float hoe, float dphi, float deta, float sIeIe,
 			     float ep, float d0, float dz, float reliso, int missHits, bool passConvVeto)
 { 
@@ -927,7 +963,38 @@ bool TaPAnalyzer::isTightEle(float scEta, float hoe, float dphi, float deta, flo
     return okFullSel;
 }
 
+// Egamma Cut based ID: 2016 HLT safe selection
+// chiara: ci sara' una selezione on top di questa (retuning 2016) ma per ora uso questa + 2015 medium/tight
+// https://indico.cern.ch/event/491536/contributions/2202104/attachments/1288921/1918602/talk_electron_ID_spring16.pdf
+bool TaPAnalyzer::isHLTSafeEle(float scEta, float hoe, float dphi, float detaOut, float sIeIe, float ep, float reliso, int missHits) 
+{  
+  bool okDetaOut, okDphi, okSieIe, okHoE, okEp, okIso, okMH;
+  
+  if (fabs(scEta)<1.479)
+    { 
+      okSieIe   = sIeIe < 0.011;
+      okDetaOut = fabs(detaOut) < 0.004;
+      okDphi    = fabs(dphi) < 0.02;
+      okEp      = fabs(ep) < 0.013;
+      okIso     = reliso < 0.10;
+      okHoE     = hoe < 0.06;
+      okMH      = missHits<=1000000000;
+      
+    } else {
+    
+    okSieIe   = sIeIe < 0.031;
+    okDetaOut = fabs(detaOut) < 0.007;
+    okDphi    = fabs(dphi) < 0.020;
+    okEp      = fabs(ep) < 0.013;
+    okIso     = reliso < 0.10;
+    okHoE     = hoe < 0.065;
+    okMH      = missHits<=2;
+  }
+  
+  bool okFullSel = okSieIe && okDetaOut && okDphi && okEp && okIso && okHoE && okMH;
 
+  return okFullSel;
+}
 
 void TaPAnalyzer::SetPuWeights(std::string puWeightFile) {
 
@@ -1029,6 +1096,26 @@ bool TaPAnalyzer::isGammaSelected( float rho, float pt, float sceta, float r9, f
     // if (!passElectronVeto) return false;
 
     return true;
+} 
+
+float TaPAnalyzer::gammaCorrPhIso( float rho, float pt, float sceta, float phoiso) {
+  
+  // effective areas - hardcoded 
+  float phIsoAE[5] = { 0.17,0.14,0.11,0.14,0.22 };
+  
+  // alpha values - hardcoded
+  float phIsoAlpha[5] = { 2.5,2.5,2.5,2.5,2.5 };
+  
+  // kappa values - hardcoded
+  float phIsoKappa[5]= { 0.0045,0.0045,0.0045,0.003,0.003 };
+  
+  // EA corrections 
+  int theEAregion  = effectiveAreaGammaRegion(sceta);   
+  
+  // full correction
+  float corrPhIso = phIsoAlpha[theEAregion] + phoiso - rho*phIsoAE[theEAregion] - phIsoKappa[theEAregion]*pt;
+  
+  return corrPhIso;
 } 
 
 bool TaPAnalyzer::isGammaSelNm1ChIso( float rho, float pt, float sceta, float r9, float phoiso, float hoe, float sieie) {
