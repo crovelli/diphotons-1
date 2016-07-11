@@ -14,6 +14,7 @@
 #include <iostream>
 
 #define NSPECIES 2
+//#define NVARIABLES 7
 #define NVARIABLES 3
 #define NCUTS 2
 
@@ -41,8 +42,8 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
 
   // chiara
   TString files[NSPECIES];
-  files[0]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_singleEle2016B.root";
-  files[1]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_DYLL.root";
+  files[0]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_SingleElectron.root";
+  files[1]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_DYToEE_NNPDF30_13TeV.root";
 
   TString plotsDir="./tnpPlots/";
   TFile* fOut=new TFile("tnpHistos_"+suffix+".root","RECREATE");
@@ -53,37 +54,46 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   // chiara
   TString variables[NVARIABLES];
   variables[0]="mass";
-  variables[1]="probe_pt";
-  variables[2]="nvtx";
+  variables[1]="nvtx";
+  variables[2]="rho";
   /*
   variables[0]="probe_chiso";    
   variables[1]="probe_phoiso";    
-  variables[2]="probe_sieie";    
-  variables[3]="probe_hoe";    
+  variables[2]="probe_corrphoiso";    
+  variables[3]="probe_sieie";    
+  variables[4]="probe_hoe";    
+  variables[5]="probe_pt";
+  variables[6]="probe_eta";
   */
 
   // chiara
   TString units[NVARIABLES];
   units[0]="GeV";
-  units[1]="GeV";
+  units[1]="";
   units[2]="";
   /*
   units[0]="GeV";
   units[1]="GeV";
-  units[2]="";
-  units[3]="";  
+  units[2]="GeV";
+  units[3]="";
+  units[4]="";  
+  units[5]="GeV";
+  units[6]="";  
   */
 
   // chiara
   int nbins[NVARIABLES];
   nbins[0]=80;
-  nbins[1]=75;
-  nbins[2]=30;
+  nbins[1]=50;
+  nbins[2]=50;
   /*
   nbins[0]=80;
   nbins[1]=80;
   nbins[2]=80;
   nbins[3]=80;
+  nbins[4]=80;
+  nbins[5]=100;
+  nbins[6]=50;
   */
 
   // chiara
@@ -91,30 +101,39 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   range[0][0]=70.;
   range[0][1]=110.;
   range[1][0]=0.;
-  range[1][1]=500.;
+  range[1][1]=50.;
   range[2][0]=0.;
-  range[2][1]=30.;
+  range[2][1]=50.;
   /*
   range[0][0]=0.;
-  range[0][1]=200.;   // 10
+  range[0][1]=5.;       
   range[1][0]=0.;
-  range[1][1]=200.;  // 10
-  range[2][0]=0.;
-  range[2][1]=1.;  // 1
-  range[3][0]=0.;
-  range[3][1]=0.15; 
+  range[1][1]=5.;   
+  range[2][0]=-2.;
+  range[2][1]=5.; 
+  range[3][0]=0.00;     // 0.01 or  0.0
+  range[3][1]=0.02;     // 0.04 or  0.02
+  range[4][0]=0.;
+  range[4][1]=0.05;   
+  range[5][0]=0.;
+  range[5][1]=400.;
+  range[6][0]=-2.5;
+  range[6][1]=2.5;
   */
 
   // chiara
   TString xaxisLabel[NVARIABLES];
   xaxisLabel[0]="m_{ee}";
-  xaxisLabel[1]="p_{T} probe";
-  xaxisLabel[2]="number of vertices";
+  xaxisLabel[1]="number of vertices";
+  xaxisLabel[2]="rho";
   /*
   xaxisLabel[0]="chIso";
   xaxisLabel[1]="phIso";
-  xaxisLabel[2]="sIeIe";
-  xaxisLabel[3]="H/E";
+  xaxisLabel[2]="correctedPhIso";
+  xaxisLabel[3]="sIeIe";
+  xaxisLabel[4]="H/E";
+  xaxisLabel[5]="p_{T} probe";
+  xaxisLabel[6]="#eta probe";
   */
 
   TString binSize[NVARIABLES];
@@ -125,6 +144,7 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
       for (int i=0;i<NSPECIES;++i) {
 	histos[i][j][z]=new TH1F(variables[z]+"_"+species[i]+"_"+TString(icut[j]),variables[z]+"_"+species[i]+"_"+TString(icut[j]),nbins[z],range[z][0],range[z][1]);
 	histos[i][j][z]->Sumw2();
+	if (z==5) histos[i][j][z]->GetYaxis()->SetRangeUser(0.1,1000000);
 	char binsiz[10];
 	sprintf(binsiz,"%2.0f",(range[z][1]-range[z][0])/nbins[z]);
 	binSize[z]=TString(binsiz);
@@ -134,17 +154,23 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
 
   // chiara
   TString cut[NCUTS];
-  // selection for event distributions (mass, #vertices)
-  cut[0]="(mass>70 && mass<110 && abs(tag_absEta)<1.5 && abs(probe_absEta)<1.5)*";
-  cut[1]="(mass>70 && mass<110 && (abs(tag_absEta)<1.5 && abs(probe_absEta)>1.5) || (abs(tag_absEta)>1.5 && abs(probe_absEta)<1.5) )*";
-  //cut[0]="(probe_fullsel && mass>70 && mass<110 && abs(tag_absEta)<1.5 && abs(probe_absEta)<1.5)*";
-  //cut[1]="(probe_fullsel && mass>70 && mass<110 && (abs(tag_absEta)<1.5 && abs(probe_absEta)>1.5) || (abs(tag_absEta)>1.5 && abs(probe_absEta)<1.5) )*";
+  // selection for event distributions (mass, #vertices, rho)
+  cut[0]="(mass>70 && mass<110 && tag_absEta<1.5 && probe_absEta<1.5)*";
+  cut[1]="(mass>70 && mass<110 && ( (tag_absEta<1.5 && probe_absEta>1.5) || (tag_absEta>1.5 && probe_absEta<1.5) ) )*";
+  //cut[0]="(probe_fullsel && mass>70 && mass<110 && tag_absEta<1.5 && probe_absEta<1.5)*";
+  //cut[1]="(probe_fullsel && mass>70 && mass<110 && ( (tag_absEta<1.5 && probe_absEta>1.5) || (tag_absEta>1.5 && probe_absEta<1.5) ) )*";
+  //cut[0]="(probe_presel && mass>70 && mass<110 && tag_absEta<1.5 && probe_absEta<1.5)*";
+  //cut[1]="(probe_presel && mass>70 && mass<110 && ( (tag_absEta<1.5 && probe_absEta>1.5) || (tag_absEta>1.5 && probe_absEta<1.5) ) )*";
 
   // selection for probe distributions
-  //cut[0]="(mass>70 && mass<110 && abs(probe_absEta)<1.5)*";
-  //cut[1]="(mass>70 && mass<110 && abs(probe_absEta)>1.5 && abs(tag_absEta)<1.5)*";
-  //cut[0]="(probe_nm1phiso && mass>70 && mass<110 && abs(probe_absEta)<1.5)*";
-  //cut[1]="(probe_nm1phiso && mass>70 && mass<110 && abs(probe_absEta)>1.5 && abs(tag_absEta)<1.5)*";
+  // cut[0]="(mass>70 && mass<110 && probe_absEta<1.5)*";
+  // cut[1]="(mass>70 && mass<110 && probe_absEta>1.5 && tag_absEta<1.5)*";
+  //cut[0]="(mass>70 && mass<110 && probe_absEta<1.5 && run>274388)*";
+  //cut[1]="(mass>70 && mass<110 && probe_absEta>1.5 && tag_absEta<1.5 && run>274388)*";
+  //cut[0]="(probe_nm1phiso && mass>70 && mass<110 && probe_absEta<1.5)*";
+  //cut[1]="(probe_nm1phiso && mass>70 && mass<110 && probe_absEta>1.5 && tag_absEta<1.5)*";
+  //cut[0]="(probe_presel && probe_pt>25 && tag_pt>33 && mass>70 && mass<110 && probe_absEta<1.5)*";
+  //cut[1]="(probe_presel && probe_pt>25 && tag_pt>33 && mass>70 && mass<110 && probe_absEta>1.5 && tag_absEta<1.5)*";
 
 
   char lumistr[100];
@@ -192,14 +218,12 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
       cout << "chiara, yield MC, cut1: "   << histos[1][1][0]->Integral() << endl;
 
       // chiara: ad hoc to have correctly normalized
-      /*
       for (int z=0;z<NVARIABLES;++z) {
 	for (int j=0;j<NCUTS;++j) {
 	  for (int i=1;i<NSPECIES;++i) 
 	    histos[i][j][z]->Scale(histos[0][j][z]->Integral()/histos[i][j][z]->Integral());
 	}
       }	    
-      */    
           
       TnPPlot myPlot;
       myPlot.setLumi(lumi);
