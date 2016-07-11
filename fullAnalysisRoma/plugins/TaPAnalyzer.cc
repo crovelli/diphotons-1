@@ -97,11 +97,9 @@ private:
 
   // sample-dependent parameters needed for the analysis
   int dopureweight_;
-  int sampleIndex_;
   string puWFileName_;
-  float xsec_;    // pb
-  float kfac_;
-  float sumDataset_;
+  int sampleIndex_;
+  float lumiWeight_;
   
   // to compute weights for pileup
   std::vector<Double_t> puweights_;
@@ -109,15 +107,10 @@ private:
   // to keep track of the number of events
   TH1F *h_entries;
   
-  // to keep track of the sum of weights
-  TH1F *h_sumW;
-  bool isFilled;
-  
   // events breakdown
   TH1F *h_selection;
   
   //---output tree branches variables
-  bool ptRatioFlip_;
   edm::Service<TFileService> fs_;
   TTree* outTree_;
   
@@ -125,15 +118,16 @@ private:
   int    event;
   int    lumi;
   int    nvtx;
+  int    sampleID;
   float  rho;
   float  rhoEle;
-  int    sampleID;
-  float  totXsec;
+  float  lumiWeight;
   float  pu_weight;
   float  pu_n;
-  float sumDataset;
   float perEveW;
   int numGenLevel;
+  int firedZcontrol;
+  int firedZtnp;
 
   float t1pfmet;
   
@@ -148,6 +142,7 @@ private:
   vector <bool>  isTagTightEle={};
   vector <bool>  isTagMediumEle={};
   vector <bool>  electron_matchHLT={};
+  vector <bool>  electron_matchZHLT={};
   vector <bool>  electron_matchMC={};
   
   int  accGammaSize;                
@@ -170,9 +165,10 @@ private:
   vector <int>   gamma_nm1phiso={};
   vector <int>   gamma_nm1hoe={};
   vector <int>   gamma_nm1sieie={};
+  vector <bool>  gamma_matchHLT={};
+  vector <bool>  gamma_matchZHLT={};
   vector <bool>  gamma_matchMC={};
   
-  vector <float> ptRatio={};
   vector <float> invMass={};
   vector <float> invMassRaw={};
   vector <int> eleIndex={};
@@ -197,10 +193,7 @@ TaPAnalyzer::TaPAnalyzer(const edm::ParameterSet& iConfig):
   dopureweight_ = iConfig.getUntrackedParameter<int>("dopureweight", 0);
   sampleIndex_  = iConfig.getUntrackedParameter<int>("sampleIndex",0);
   puWFileName_  = iConfig.getParameter<std::string>("puWFileName");   
-  xsec_         = iConfig.getUntrackedParameter<double>("xsec",1.); 
-  kfac_         = iConfig.getUntrackedParameter<double>("kfac",1.); 
-  sumDataset_   = iConfig.getUntrackedParameter<double>("sumDataset",-999.);
-  ptRatioFlip_  = false;
+  lumiWeight_   = iConfig.getUntrackedParameter<double>("lumiWeight",1.);
 };
 
 TaPAnalyzer::~TaPAnalyzer() { };
@@ -211,7 +204,8 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   h_entries->Fill(5);
   
   // Sample index
-  int sampleID = sampleIndex_;
+  sampleID   = sampleIndex_;
+  lumiWeight = lumiWeight_;
   
   // --------------------------------------------------
   // access edm objects                                                                                    
@@ -220,9 +214,6 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 
   Handle<View<flashgg::Electron> > theElectrons;
   iEvent.getByToken( electronToken_, theElectrons );
-
-  Handle<View< PileupSummaryInfo> > PileupInfos;
-  iEvent.getByToken(PileUpToken_,PileupInfos);
 
   Handle<double> objs_rho;                                 
   iEvent.getByToken(rhoToken_,objs_rho);
@@ -239,11 +230,14 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   edm::Handle<pat::TriggerObjectStandAloneCollection> triggerObjects;
   iEvent.getByToken(triggerObjects_, triggerObjects);
 
+  Handle<View< PileupSummaryInfo> > PileupInfos;
+  if (sampleID>0) iEvent.getByToken(PileUpToken_,PileupInfos);
+
   edm::Handle<GenEventInfoProduct> genInfo;      
-  if (sampleID>0 && sampleID<10000) iEvent.getByToken(genInfoToken_,genInfo);  
+  if (sampleID>0) iEvent.getByToken(genInfoToken_,genInfo);  
 
   edm::Handle<View<reco::GenParticle> > genParticles;
-  if (sampleID>0 && sampleID<10000) iEvent.getByToken( genPartToken_, genParticles );
+  if (sampleID>0) iEvent.getByToken( genPartToken_, genParticles );
 
   Handle<View<pat::MET> > METs;
   iEvent.getByToken( MetToken_, METs );
@@ -268,10 +262,14 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   rho = *(objs_rho.product());
   rhoEle = *(objs_rhoEle.product());    
   
+  // HLT paths preliminary settings
+  firedZcontrol = 0;
+  firedZtnp     = 0;
+
   // PU weight (for MC only and if requested)
   pu_weight = 1.;
   pu_n      = -1.;
-  if (sampleID>0 && sampleID<10000) {     // MC
+  if (sampleID>0) {     // MC
     pu_n = 0.;
     for( unsigned int PVI = 0; PVI < PileupInfos->size(); ++PVI )
       {
@@ -284,25 +282,13 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
       pu_weight = GetPUWeight(pu_n);         
   }
 
-  // x-sec * kFact for MC only 
-  totXsec = 1.;
-  if (sampleID>0 && sampleID<10000) totXsec = xsec_ * kfac_;
-  
   // other weights for the dataset
-  sumDataset = 1.;  
-  perEveW    = 1.;
-  if (sampleID>0 && sampleID<10000) { 
-    sumDataset = sumDataset_;
+  perEveW = 1.;
+  if (sampleID>0) { 
     const auto & eveWeights = genInfo->weights();
-        if(!eveWeights.empty()) perEveW = eveWeights[0];
+    if(!eveWeights.empty()) perEveW = eveWeights[0];
   }
 
-  // To keep track of the sum of weights
-  if (!isFilled) {
-    h_sumW->Fill(5,sumDataset);
-    isFilled = true;
-  }
-  
   // Events breakdown  
   h_selection->Fill(0.,perEveW);
   
@@ -320,21 +306,18 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   // 1) analysis cuts: trigger 
 
   // selected HLT object
-  vector<float >hltTagPt, hltTagEta, hltTagPhi;
+  vector<float >hltTnpPt, hltTnpEta, hltTnpPhi;
   bool atLeastOneTag   = false;
   bool atLeastOneProbe = false;
     
   const edm::TriggerNames &names = iEvent.triggerNames(*triggerBits);
   
   // HLT paths for TnP
-  // string theTnPPath = "HLT_Ele27_WPLoose_Gsf_v";               // 2016 data: 8x MC is without HLT 
-  // string theTnPPath = "HLT_Ele27_WPTight_Gsf_v";               // 2016 data: 8x MC is without HLT 
-  // string theTnPPath = "HLT_Ele35_WPLoose_Gsf_v";               // 2016 data: 8x MC is without HLT 
-  string theTnPPath = "HLT_Ele27_eta2p1_WPLoose_Gsf_v";               // 2016 data: 8x MC is without HLT 
+  string theTnPPath = "HLT_Ele27_eta2p1_WPLoose_Gsf_v";    // 2016 data: 8x MC is without HLT 
 
   // check if the event fired the TnP path
   bool fired = false;
-  if (sampleID>=10000) {  // data only
+  if (sampleID==0) {  // data only
     for (unsigned int i = 0, n = triggerBits->size(); i < n; ++i) {
       string thisPath = names.triggerName(i);      
       //cout << "checkHLT: " << i << " " << thisPath << endl;
@@ -346,7 +329,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
     fired = true;   // MC
   }
   
-  if (sampleID>=10000) { 
+  if (sampleID==0) { 
 
     if (fired) {   
       
@@ -367,9 +350,9 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  // the fired path must be our TnP path
 	  if ( thisPath.find(theTnPPath)==string::npos) continue;
 	  
-	  hltTagPt.push_back(obj.pt());
-	  hltTagEta.push_back(obj.eta());
-	  hltTagPhi.push_back(obj.phi());
+	  hltTnpPt.push_back(obj.pt());
+	  hltTnpEta.push_back(obj.eta());
+	  hltTnpPhi.push_back(obj.phi());
 	}	  
       }
     } 
@@ -378,10 +361,10 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
     h_selection->Fill(1.,perEveW);
   }
 
-  if (sampleID>=10000) 
-    if (hltTagPt.size()!=hltTagEta.size() || hltTagPt.size()!=hltTagPhi.size()) cout << "problem!" << endl;
+  if (sampleID==0) 
+    if (hltTnpPt.size()!=hltTnpEta.size() || hltTnpPt.size()!=hltTnpPhi.size()) cout << "problem!" << endl;
 
-  if ( hltTagPt.size()>0 || sampleID<10000 ) {
+  if ( hltTnpPt.size()>0 || sampleID>0 ) {  
     
     h_selection->Fill(2.,perEveW);
     
@@ -413,7 +396,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
       bool genPosFound = false;
       TLorentzVector myGenEle(0,0,0,0);  
       TLorentzVector myGenPos(0,0,0,0);  
-      if (sampleID>0 && sampleID<10000) {   
+      if (sampleID>0) {   
 	for( unsigned int genLoop = 0 ; genLoop < genParticles->size(); genLoop++ ) {
 	  int status = genParticles->ptrAt( genLoop )->status();
 	  int pdgid  = genParticles->ptrAt( genLoop )->pdgId();
@@ -434,7 +417,44 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 		numGenLevel++;
 	      }}}}
       }
-      
+    
+
+      // ----------------------------------------------------  
+      // Parenthesis: saving HLT infos for the Z control path
+      string theZcontrolPath = "HLT_Ele35_WPLoose_Gsf_v";        
+      vector<float >hltControlPt, hltControlEta, hltControlPhi;
+
+      // check if the event fired the Z control pat
+      firedZcontrol=0;
+      if (sampleID==0) {  // data only
+	for (unsigned int i = 0, n = triggerBits->size(); i < n; ++i) {
+	  string thisPath = names.triggerName(i);      
+	  if (thisPath.find(theZcontrolPath)==string::npos) continue;
+	  if (!triggerBits->accept(i)) continue;
+	  firedZcontrol = 1;
+	}
+      } else {      // MC
+	firedZcontrol = 1;   
+      }
+      if (sampleID==0) {
+
+	// HLT objects firing the Z control path
+	for (pat::TriggerObjectStandAlone obj : *triggerObjects) {
+	  obj.unpackPathNames(names);
+	  vector<string> pathNamesAll = obj.pathNames(false);
+	  for (unsigned h = 0, n = pathNamesAll.size(); h < n; ++h) {
+	    string thisPath = pathNamesAll[h];
+	    bool isLF = obj.hasPathName( thisPath, true, false ); 
+	    if (!isLF) continue;
+	    if ( thisPath.find(theZcontrolPath)==string::npos) continue;
+	    hltControlPt.push_back(obj.pt());
+	    hltControlEta.push_back(obj.eta());
+	    hltControlPhi.push_back(obj.phi());
+	  }	  
+	}
+      }
+    
+
       // ----------------------------------------------------  
       // 3) at least one tag candidate
       atLeastOneTag = false;
@@ -473,15 +493,15 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  TLorentzVector thisRecoEle(0,0,0,0);
 	  thisRecoEle.SetPtEtaPhiM(elePt,eleEta,elePhi,0);
 
-	  // match with selected HLT objects
+	  // match with selected HLT objects for the TnP path
 	  bool matchHLT = false;
-	  if (sampleID>=10000) {	    
-	    for (int hltTagC=0; hltTagC<(int)hltTagPt.size(); hltTagC++)
+	  if (sampleID==0) {	    
+	    for (int hltTnpC=0; hltTnpC<(int)hltTnpPt.size(); hltTnpC++)
 	      {
 		TLorentzVector thisHLTob(0,0,0,0);  
-		float thisHLTpt  = hltTagPt[hltTagC];
-		float thisHLTeta = hltTagEta[hltTagC];
-		float thisHLTphi = hltTagPhi[hltTagC];
+		float thisHLTpt  = hltTnpPt[hltTnpC];
+		float thisHLTeta = hltTnpEta[hltTnpC];
+		float thisHLTphi = hltTnpPhi[hltTnpC];
 		thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
 		if(thisRecoEle.DeltaR(thisHLTob)<0.3)
 		  matchHLT = true;
@@ -490,9 +510,26 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	    matchHLT = true;
 	  }
 
+	  // match with selected HLT objects for the Z control path
+	  bool matchZHLT = false;
+	  if (sampleID==0) {	    
+	    for (int hltC=0; hltC<(int)hltControlPt.size(); hltC++)
+	      {
+		TLorentzVector thisHLTob(0,0,0,0);  
+		float thisHLTpt  = hltControlPt[hltC];
+		float thisHLTeta = hltControlEta[hltC];
+		float thisHLTphi = hltControlPhi[hltC];
+		thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
+		if(thisRecoEle.DeltaR(thisHLTob)<0.3)
+		  matchZHLT = true;
+	      }
+	  } else {
+	    matchZHLT = true;
+	  }
+
 	  // Match with MC truth
 	  bool matchMC = false; 
-	  if (sampleID>0 && sampleID<10000) {  
+	  if (sampleID>0) {  
 	    if(genEleFound && thisRecoEle.DeltaR(myGenEle)<0.3) matchMC = true;  
 	    if(genPosFound && thisRecoEle.DeltaR(myGenPos)<0.3) matchMC = true;  
 	  }
@@ -514,7 +551,8 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  
 	  // isolation with rho correction
 	  reco::GsfElectron::PflowIsolationVariables pfIso = Electron->pfIsolationVariables();
-	  float corrHadPlusPho = pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - rhoEle*effectiveArea2016Ele03(scEta);    
+	  // float corrHadPlusPho = pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - rhoEle*effectiveArea2016Ele03(scEta);    
+	  float corrHadPlusPho = pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - rhoEle*effectiveAreaEle03(scEta);    
 	  if (corrHadPlusPho<=0) corrHadPlusPho = 0.;
 	  float absIsoWeffArea = pfIso.sumChargedHadronPt + corrHadPlusPho;
 	  float relIso = absIsoWeffArea/elePt;
@@ -547,6 +585,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  isTagTightEle.push_back(tightEle);
 	  isTagMediumEle.push_back(mediumEle);
 	  electron_matchHLT.push_back(matchHLT);
+	  electron_matchZHLT.push_back(matchZHLT);  
 	  electron_matchMC.push_back(matchMC);                
 	}  // tag
       accEleSize = electron_pt.size();
@@ -584,12 +623,47 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  float pt    = g1->et();
 	  float eta   = g1->eta();
 	  float phi   = g1->phi();
-	  
-	  // Match with MC truth
-	  bool matchMC = false; 
 	  TLorentzVector thisRecoGamma(0,0,0,0);
 	  thisRecoGamma.SetPtEtaPhiM(pt,eta,phi,0);
-	  if (sampleID>0 && sampleID<10000) {  
+	  
+	  // match with selected HLT objects for the TnP path
+	  bool matchHLT = false;
+	  if (sampleID==0) {	    
+	    for (int hltTnpC=0; hltTnpC<(int)hltTnpPt.size(); hltTnpC++)
+	      {
+		TLorentzVector thisHLTob(0,0,0,0);  
+		float thisHLTpt  = hltTnpPt[hltTnpC];
+		float thisHLTeta = hltTnpEta[hltTnpC];
+		float thisHLTphi = hltTnpPhi[hltTnpC];
+		thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
+		if(thisRecoGamma.DeltaR(thisHLTob)<0.3)
+		  matchHLT = true;
+	      }
+	  } else {
+	    matchHLT = true;
+	  }
+
+	  // match with selected HLT objects for the Z control path
+	  bool matchZHLT = false;
+	  if (sampleID==0) {	    
+	    for (int hltC=0; hltC<(int)hltControlPt.size(); hltC++)
+	      {
+		TLorentzVector thisHLTob(0,0,0,0);  
+		float thisHLTpt  = hltControlPt[hltC];
+		float thisHLTeta = hltControlEta[hltC];
+		float thisHLTphi = hltControlPhi[hltC];
+		thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
+		if(thisRecoGamma.DeltaR(thisHLTob)<0.3)
+		  matchZHLT = true;
+	      }
+	  } else {
+	    matchZHLT = true;
+	  }
+
+
+	  // Match with MC truth
+	  bool matchMC = false; 
+	  if (sampleID>0) {  
 	    if(genEleFound && thisRecoGamma.DeltaR(myGenEle)<0.3) matchMC = true;  
 	    if(genPosFound && thisRecoGamma.DeltaR(myGenPos)<0.3) matchMC = true;  
 	  }
@@ -640,12 +714,13 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  gamma_nm1phiso.push_back(passNm1PhIso);
 	  gamma_nm1hoe.push_back(passNm1HoE);
 	  gamma_nm1sieie.push_back(passNm1Sieie);
+	  gamma_matchHLT.push_back(matchHLT);       
+	  gamma_matchZHLT.push_back(matchZHLT);     
 	  gamma_matchMC.push_back(matchMC);
 
 	} // probe
 
       if (acceptGamma.size()>0 && !atLeastOneProbe) cout << "chiara: abbiamo un problema..." << endl;
-      // if (!atLeastOneProbe) cout << "chiara, non c'e' il probe " << event << " " << run << " " << lumi << endl; 
 
     } // vertex
   } // HLT    
@@ -671,22 +746,6 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 
       eleIndex.push_back(iEle);   
       gammaIndex.push_back(iGam);    
-      if(thisGamma.Pt() > thisEle.Pt()) 
-	{
-	  if(ptRatioFlip_)
-	    ptRatio.push_back(thisEle.Pt()/thisGamma.Pt());
-	  else
-	    ptRatio.push_back(thisGamma.Pt()/thisEle.Pt());
-	  ptRatioFlip_ = !ptRatioFlip_;
-	} 
-      else 
-	{
-	  if(ptRatioFlip_)
-	    ptRatio.push_back(thisGamma.Pt()/thisEle.Pt());
-	  else
-	    ptRatio.push_back(thisEle.Pt()/thisGamma.Pt());
-	  ptRatioFlip_ = !ptRatioFlip_;
-	}
     }
   }
   
@@ -710,6 +769,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   isTagTightEle.clear();
   isTagMediumEle.clear();
   electron_matchHLT.clear();
+  electron_matchZHLT.clear();
   electron_matchMC.clear();
   //---probe
   gamma_pt.clear();
@@ -731,10 +791,11 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   gamma_nm1phiso.clear();
   gamma_nm1hoe.clear();
   gamma_nm1sieie.clear();
+  gamma_matchHLT.clear();
+  gamma_matchZHLT.clear();
   gamma_matchMC.clear();
 
-  //---invariant mass and ptratio
-  ptRatio.clear();
+  //---invariant mass
   invMass.clear();
   invMassRaw.clear();
   eleIndex.clear();
@@ -750,11 +811,6 @@ void TaPAnalyzer::beginJob()
     // to keep track of the original number of events
     h_entries = fs_->make<TH1F>("h_entries", "h_entries", 10,  0., 10.);
     h_entries->Sumw2();
-
-    // to keep track of the sum of weights
-    h_sumW = fs_->make<TH1F>("h_sumW", "h_sumW", 10,  0., 10.);
-    h_sumW->Sumw2();
-    isFilled = false;
 
     // for the event breakdown  
     h_selection = fs_->make<TH1F>("h_selection", "h_selection", 6, -0.5, 5.5);
@@ -776,12 +832,13 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("rho", &rho, "rho/F");
     outTree_->Branch("rhoEle", &rhoEle, "rhoEle/F");
     outTree_->Branch("sampleID", &sampleID, "sampleID/I");
-    outTree_->Branch("totXsec", &totXsec, "totXsec/F");
+    outTree_->Branch("lumiWeight", &lumiWeight, "lumiWeight/F");
     outTree_->Branch("pu_weight", &pu_weight, "pu_weight/F");
     outTree_->Branch("pu_n", &pu_n, "pu_n/F");
-    outTree_->Branch("sumDataset", &sumDataset, "sumDataset/F");
     outTree_->Branch("perEveW", &perEveW, "perEveW/F");
     outTree_->Branch("numGenLevel", &numGenLevel, "numGenLevel/I");
+    outTree_->Branch("firedZcontrol", &firedZcontrol, "firedZcontrol/I");
+    outTree_->Branch("firedZtnp", &firedZtnp, "firedZtnp/I");
 
     outTree_->Branch("t1pfmet", &t1pfmet, "t1pfmet/F");
 
@@ -796,6 +853,7 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("isTagTightEle", "std::vector<bool>", &isTagTightEle );
     outTree_->Branch("isTagMediumEle", "std::vector<bool>", &isTagMediumEle );
     outTree_->Branch("electron_matchHLT", "std::vector<bool>", &electron_matchHLT );
+    outTree_->Branch("electron_matchZHLT", "std::vector<bool>", &electron_matchZHLT );
     outTree_->Branch("electron_matchMC", "std::vector<bool>", &electron_matchMC );
  
     outTree_->Branch("accGammaSize",  &accGammaSize,  "accGammaSize/I");   
@@ -818,9 +876,10 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("gamma_nm1phiso", "std::vector<int>", &gamma_nm1phiso);
     outTree_->Branch("gamma_nm1hoe", "std::vector<int>", &gamma_nm1hoe);
     outTree_->Branch("gamma_nm1sieie", "std::vector<int>", &gamma_nm1sieie);
+    outTree_->Branch("gamma_matchHLT", "std::vector<bool>", &gamma_matchHLT );
+    outTree_->Branch("gamma_matchZHLT", "std::vector<bool>", &gamma_matchZHLT );
     outTree_->Branch("gamma_matchMC", "std::vector<bool>", &gamma_matchMC );
 
-    outTree_->Branch("ptRatio","std::vector<float>", &ptRatio);
     outTree_->Branch("invMass","std::vector<float>", &invMass);
     outTree_->Branch("invMassRaw","std::vector<float>", &invMassRaw);
     outTree_->Branch("eleIndex","std::vector<int>", &eleIndex);
@@ -911,10 +970,10 @@ bool TaPAnalyzer::isMediumEle(float scEta, float hoe, float dphi, float deta, fl
 
   // chiara: for the moment we remove the deltaEta cut in EE
   bool okFullSel;
-  if (fabs(scEta)<1.479) 
-    okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
-  else
-    okFullSel = okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;    
+  // if (fabs(scEta)<1.479) 
+  okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
+  // else
+  // okFullSel = okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;    
 
   return okFullSel;
 }
@@ -955,10 +1014,10 @@ bool TaPAnalyzer::isTightEle(float scEta, float hoe, float dphi, float deta, flo
     
     // chiara: for the moment we remove the deltaEta cut in EE
     bool okFullSel;
-    if (fabs(scEta)<1.479) 
-      okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
-    else
-      okFullSel = okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;    
+    // if (fabs(scEta)<1.479) 
+    okFullSel = okDeta && okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;
+    // else
+    // okFullSel = okDphi && okSieIe && okHoE && okEp && okD0 && okDz && okIso && okMH && okConv;    
 
     return okFullSel;
 }
