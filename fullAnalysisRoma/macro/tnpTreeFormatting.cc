@@ -11,6 +11,8 @@ using namespace std;
 float scaleCorr(int run, float r9, float sceta);
 float smearings(float r9, float sceta);
 bool isPhoIsoOk(float sceta, float r9, float corrphoiso);
+float gammaPtOnlyCorrPhIso(float sceta, float pt, float phoiso);
+int effectiveAreaGammaRegion(float sceta);
 
 void tnpTreeFormat(const char* filename, float lumiForW) {
 
@@ -60,18 +62,17 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   std::vector<TTree*> trees; 
   trees.push_back(treeNew);
 
-  // sum of weights in the dataset we ran on originally   
-  float sampleSumWeight = (float)h_sumW->Integral();   
-
   // original tree leaves
   Int_t           run   = 0;
   Int_t           event = 0;
   Int_t           lumi  = 0;
   Int_t           nvtx  = 0;
+  Float_t         rho   = 0;
   Float_t         pu_weight = 0;
+  Float_t         lumiWeight = 0;
   Float_t         perEveW   = 0;
-  float           totXsec = 0;
   Int_t           numGenLevel = 0;
+  //Int_t           firedZcontrol = 0;
   vector<float>   *electron_eta = 0;
   vector<float>   *electron_pt = 0;
   vector<float>   *electron_r9 = 0;
@@ -79,6 +80,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   vector<bool>    *isTagTightEle = 0;
   vector<bool>    *isTagHltSafeEle = 0;
   vector<bool>    *electron_matchHLT = 0;
+  //vector<bool>    *electron_matchZHLT = 0;
   vector<bool>    *electron_matchMC  = 0;
   vector<float>   *gamma_pt  = 0;
   vector<float>   *gamma_eta = 0;
@@ -90,6 +92,8 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   vector<int>     *gamma_nm1hoe = 0;
   vector<int>     *gamma_nm1sieie = 0;
   vector<float>   *gamma_eleveto = 0;
+  //vector<bool>    *gamma_matchHLT  = 0;
+  //vector<bool>    *gamma_matchZHLT  = 0;
   vector<bool>    *gamma_matchMC  = 0;
   vector<float>   *gamma_sieie = 0;
   vector<float>   *gamma_hoe = 0;
@@ -106,10 +110,12 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   TBranch        *b_event;
   TBranch        *b_lumi;
   TBranch        *b_nvtx;
+  TBranch        *b_rho;
   TBranch        *b_pu_weight;
+  TBranch        *b_lumiWeight;
   TBranch        *b_perEveW;
-  TBranch        *b_totXsec;
   TBranch        *b_numGenLevel;
+  //TBranch        *b_firedZcontrol;
   TBranch        *b_electron_eta;   //!   
   TBranch        *b_electron_pt;   //!   
   TBranch        *b_electron_r9;   //!   
@@ -117,6 +123,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   TBranch        *b_isTagTightEle;
   TBranch        *b_isTagHltSafeEle;  
   TBranch        *b_electron_matchHLT; 
+  //TBranch        *b_electron_matchZHLT; 
   TBranch        *b_electron_matchMC;
   TBranch        *b_gamma_pt;   //!  
   TBranch        *b_gamma_eta;   //!   
@@ -128,6 +135,8 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   TBranch        *b_gamma_nm1hoe;
   TBranch        *b_gamma_nm1sieie;
   TBranch        *b_gamma_eleveto; 
+  //TBranch        *b_gamma_matchHLT;
+  //TBranch        *b_gamma_matchZHLT;
   TBranch        *b_gamma_matchMC;
   TBranch        *b_gamma_sieie;
   TBranch        *b_gamma_hoe;
@@ -144,10 +153,12 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   treeOrig->SetBranchAddress("event", &event, &b_event);
   treeOrig->SetBranchAddress("lumi", &lumi, &b_lumi);
   treeOrig->SetBranchAddress("nvtx", &nvtx, &b_nvtx);
+  treeOrig->SetBranchAddress("rho", &rho, &b_rho);
   treeOrig->SetBranchAddress("pu_weight", &pu_weight, &b_pu_weight);
+  treeOrig->SetBranchAddress("lumiWeight", &lumiWeight, &b_lumiWeight);
   treeOrig->SetBranchAddress("perEveW", &perEveW, &b_perEveW);
-  treeOrig->SetBranchAddress("totXsec", &totXsec, &b_totXsec);
   treeOrig->SetBranchAddress("numGenLevel", &numGenLevel, &b_numGenLevel);
+  //treeOrig->SetBranchAddress("firedZcontrol",&firedZcontrol,&b_firedZcontrol);
   treeOrig->SetBranchAddress("electron_eta", &electron_eta, &b_electron_eta);
   treeOrig->SetBranchAddress("electron_pt", &electron_pt, &b_electron_pt);
   treeOrig->SetBranchAddress("electron_r9", &electron_r9, &b_electron_r9);
@@ -155,6 +166,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   treeOrig->SetBranchAddress("isTagMediumEle", &isTagMediumEle, &b_isTagMediumEle);
   treeOrig->SetBranchAddress("isTagTightEle", &isTagTightEle, &b_isTagTightEle);
   treeOrig->SetBranchAddress("electron_matchHLT", &electron_matchHLT, &b_electron_matchHLT);
+  //treeOrig->SetBranchAddress("electron_matchZHLT", &electron_matchZHLT, &b_electron_matchZHLT);
   treeOrig->SetBranchAddress("electron_matchMC", &electron_matchMC, &b_electron_matchMC);
   treeOrig->SetBranchAddress("gamma_pt", &gamma_pt, &b_gamma_pt);
   treeOrig->SetBranchAddress("gamma_eta", &gamma_eta, &b_gamma_eta);
@@ -166,6 +178,8 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   treeOrig->SetBranchAddress("gamma_nm1hoe", &gamma_nm1hoe, &b_gamma_nm1hoe);
   treeOrig->SetBranchAddress("gamma_nm1sieie", &gamma_nm1sieie, &b_gamma_nm1sieie);
   treeOrig->SetBranchAddress("gamma_eleveto", &gamma_eleveto, &b_gamma_eleveto);
+  //treeOrig->SetBranchAddress("gamma_matchHLT", &gamma_matchHLT, &b_gamma_matchHLT);        
+  //treeOrig->SetBranchAddress("gamma_matchZHLT", &gamma_matchZHLT, &b_gamma_matchZHLT);        
   treeOrig->SetBranchAddress("gamma_matchMC", &gamma_matchMC, &b_gamma_matchMC);        
   treeOrig->SetBranchAddress("gamma_sieie", &gamma_sieie, &b_gamma_sieie);        
   treeOrig->SetBranchAddress("gamma_hoe", &gamma_hoe, &b_gamma_hoe);        
@@ -181,13 +195,18 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   float tag_pt, tag_r9;
   float tag_eta, tag_absEta;
   int tag_matchMC;
+  int tag_matchHLT;
+  //int tag_matchZHLT;
   float probe_pt, probe_absEta;
   float probe_eta;
   float probe_r9;
   int probe_matchMC; 
+  //int probe_matchHLT; 
+  //int probe_matchZHLT; 
   int probe_fullsel;
   int probe_presel;
-  int probe_phisosel;
+  int probe_tunedphisosel;
+  int probe_ptonlycorrphisosel;
   int probe_nm1chiso;
   int probe_nm1phiso;
   int probe_nm1hoe;
@@ -209,24 +228,31 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
     theTreeNew->Branch("event", &event, "event/I");
     theTreeNew->Branch("lumi", &lumi, "lumi/I");
     theTreeNew->Branch("nvtx", &nvtx, "nvtx/I");
+    theTreeNew->Branch("rho", &rho, "rho/F");
     theTreeNew->Branch("pu_weight", &pu_weight, "pu_weight/F");
+    //theTreeNew->Branch("firedZcontrol", &firedZcontrol, "firedZcontrol/I");
     theTreeNew->Branch("tag_pt",&tag_pt,"tag_pt/F");
     theTreeNew->Branch("tag_r9",&tag_r9,"tag_r9/F");
     theTreeNew->Branch("tag_eta",&tag_eta,"tag_eta/F");
     theTreeNew->Branch("tag_absEta",&tag_absEta,"tag_absEta/F");
     theTreeNew->Branch("tag_matchMC",&tag_matchMC,"tag_matchMC/I");
+    theTreeNew->Branch("tag_matchHLT",&tag_matchHLT,"tag_matchHLT/I");
+    //theTreeNew->Branch("tag_matchZHLT",&tag_matchZHLT,"tag_matchZHLT/I");
     theTreeNew->Branch("probe_pt",&probe_pt,"probe_pt/F");
     theTreeNew->Branch("probe_absEta",&probe_absEta,"probe_absEta/F");
     theTreeNew->Branch("probe_eta",&probe_eta,"probe_eta/F");
     theTreeNew->Branch("probe_r9",&probe_r9,"probe_r9/F");
     theTreeNew->Branch("probe_fullsel", &probe_fullsel, "probe_fullsel/I");
     theTreeNew->Branch("probe_presel", &probe_presel, "probe_presel/I");
-    theTreeNew->Branch("probe_phisosel", &probe_phisosel, "probe_phisosel/I");
+    theTreeNew->Branch("probe_tunedphisosel", &probe_tunedphisosel, "probe_tunedphisosel/I");
+    theTreeNew->Branch("probe_ptonlycorrphisosel", &probe_ptonlycorrphisosel, "probe_ptonlycorrphisosel/I");
     theTreeNew->Branch("probe_nm1chiso", &probe_nm1chiso, "probe_nm1chiso/I");
     theTreeNew->Branch("probe_nm1phiso", &probe_nm1phiso, "probe_nm1phiso/I");
     theTreeNew->Branch("probe_nm1hoe", &probe_nm1hoe, "probe_nm1hoe/I");
     theTreeNew->Branch("probe_nm1sieie", &probe_nm1sieie, "probe_nm1sieie/I");
     theTreeNew->Branch("probe_totsel", &probe_totsel, "probe_totsel/I");
+    //theTreeNew->Branch("probe_matchHLT",&probe_matchHLT,"probe_matchHLT/I");
+    //theTreeNew->Branch("probe_matchZHLT",&probe_matchZHLT,"probe_matchZHLT/I");
     theTreeNew->Branch("probe_matchMC",&probe_matchMC,"probe_matchMC/I");
     theTreeNew->Branch("probe_eleveto",&probe_eleveto,"probe_eleveto/I");
     theTreeNew->Branch("probe_sieie",&probe_sieie,"probe_sieie/F");
@@ -261,6 +287,9 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
       // further selection on probe
       if (gamma_eleveto->at(gammaIndex->at(ii)))  continue;       // nominal T&P
       // if (!gamma_fullsel->at(gammaIndex->at(ii)))  continue;         // fake rate check  
+      
+      // only for HLT studies: the probe has to pass the full selection + inverted ele veto
+      // if (!gamma_fullsel->at(gammaIndex->at(ii))) continue;       
 
       // match with mc-truth
       if (run==1){ 
@@ -295,6 +324,11 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
       float corrPhIso = gamma_corrphoiso->at(gammaIndex->at(ii));
       bool passPhIsoCut = isPhoIsoOk(probeEta, probeR9, corrPhIso);  
 
+      // ad hoc cut to test photon isolation corrected for pT only, not for rho. 
+      float probePt = gamma_pt->at(gammaIndex->at(ii));
+      float ptOnlyCorrPhIso = gammaPtOnlyCorrPhIso(probeEta,probePt,gamma_phoiso->at(gammaIndex->at(ii)));
+      bool passPtOnlyCorrPhIso = ptOnlyCorrPhIso<3.5;  // chiara: hardcoded. E' ragionevole per EE
+
       // invariant mass cut after smearings / scale correction
       if (mass<70 || mass>110) continue;
 
@@ -304,6 +338,8 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
       tag_r9 = electron_r9->at(eleIndex->at(ii));
       tag_eta = electron_eta->at(eleIndex->at(ii));
       tag_absEta = fabs(electron_eta->at(eleIndex->at(ii)));
+      tag_matchHLT = electron_matchHLT->at(eleIndex->at(ii));
+      //tag_matchZHLT = electron_matchZHLT->at(eleIndex->at(ii));
       tag_matchMC = electron_matchMC->at(eleIndex->at(ii));
       probe_pt = gamma_pt->at(gammaIndex->at(ii));
       probe_absEta  = fabs(gamma_eta->at(gammaIndex->at(ii)));
@@ -311,12 +347,15 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
       probe_r9  = gamma_r9->at(gammaIndex->at(ii));
       probe_fullsel = gamma_fullsel->at(gammaIndex->at(ii));  
       probe_presel = gamma_presel->at(gammaIndex->at(ii));  
-      probe_phisosel = passPhIsoCut;
+      probe_tunedphisosel = passPhIsoCut && gamma_nm1phiso->at(gammaIndex->at(ii));                // full selection with tuned phiso cut
+      probe_ptonlycorrphisosel = passPtOnlyCorrPhIso && gamma_nm1phiso->at(gammaIndex->at(ii));    // full selection replacing the ph-iso cut with an ad-=hoc one correcting for pt only
       probe_nm1chiso = gamma_nm1chiso->at(gammaIndex->at(ii));
       probe_nm1phiso = gamma_nm1phiso->at(gammaIndex->at(ii));
       probe_nm1hoe   = gamma_nm1hoe->at(gammaIndex->at(ii));
       probe_nm1sieie = gamma_nm1sieie->at(gammaIndex->at(ii));
       probe_totsel = gamma_fullsel->at(gammaIndex->at(ii)) && gamma_presel->at(gammaIndex->at(ii)); 
+      //probe_matchHLT = gamma_matchHLT->at(gammaIndex->at(ii));
+      //probe_matchZHLT = gamma_matchZHLT->at(gammaIndex->at(ii));
       probe_matchMC = gamma_matchMC->at(gammaIndex->at(ii));
       probe_eleveto = gamma_eleveto->at(gammaIndex->at(ii));
       probe_sieie = gamma_sieie->at(gammaIndex->at(ii)); 
@@ -327,7 +366,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
 
       // weights
       if (run==1) {   // MC                                                                                                                   
-	xsecWeight = perEveW * lumiForW * totXsec / sampleSumWeight;
+	xsecWeight = perEveW * lumiForW * lumiWeight;
 	weight     = xsecWeight * pu_weight;
       } else {
 	xsecWeight = 1.;
@@ -625,5 +664,36 @@ bool isPhoIsoOk( float sceta, float r9, float corrphoiso) {
   if (corrphoiso > phoiso_cut[theclass]) return false;
 
   return true;
+}
+
+// photon isolation correction for pT only, not for rho
+float gammaPtOnlyCorrPhIso( float sceta, float pt, float phoiso) {
+
+  float ptCorrPhIso = 0;
+
+  // alpha values - hardcoded 
+  float phIsoAlpha[5] = { 2.5,2.5,2.5,2.5,2.5 };
+
+  // kappa values - hardcoded 
+  float phIsoKappa[5]= { 0.0045,0.0045,0.0045,0.003,0.003 };
+
+  // EA corrections 
+  int theEAregion  = effectiveAreaGammaRegion(sceta);
+
+  // pt-only correction
+  ptCorrPhIso = phIsoAlpha[theEAregion] + phoiso - phIsoKappa[theEAregion]*pt;
+
+  return ptCorrPhIso;
+}
+
+int effectiveAreaGammaRegion(float sceta) {
+  
+  int theEAregion = 999;
+  if (fabs(sceta)<=0.9) theEAregion = 0;
+  if (fabs(sceta)<=1.5 && fabs(sceta)>0.9)  theEAregion = 1;
+  if (fabs(sceta)<=2.0 && fabs(sceta)>1.5)  theEAregion = 2;
+  if (fabs(sceta)<=2.2 && fabs(sceta)>2.0)  theEAregion = 3;
+  if (fabs(sceta)<=2.5 && fabs(sceta)>2.2)  theEAregion = 4;
+  return theEAregion;
 }
 
