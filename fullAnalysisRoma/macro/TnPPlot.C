@@ -199,7 +199,8 @@ public:
     if (gPad->GetLogy()) {
       hstack->SetMaximum(1.2 * theMax);
       hstack->SetMinimum(0.1);  
-      if (hstack->GetMinimum()==0) hstack->SetMinimum(0.00005);  
+      // if (hstack->GetMinimum()==0) hstack->SetMinimum(0.00005);  
+      if (hstack->GetMinimum()==0) hstack->SetMinimum(0.1);  
     } else {
       hstack->SetMaximum(1.55 * theMax);
     }
