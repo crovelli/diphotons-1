@@ -168,6 +168,8 @@ private:
   vector <bool>  gamma_matchHLT={};
   vector <bool>  gamma_matchZHLT={};
   vector <bool>  gamma_matchMC={};
+  vector <bool>  gamma_matchHltSafeEle={};
+  vector <bool>  gamma_matchTightEle={};
   
   vector <float> invMass={};
   vector <float> invMassRaw={};
@@ -694,7 +696,51 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  bool passNm1Sieie = isGammaSelNm1Sieie( rho, pt, scEta, R9noZS, chIso, phoIso, HoE );
 
 	  atLeastOneProbe = true;   // denominator = reco photons in acceptance with ET>20      
-	
+
+	  // match with electrons 
+	  bool matchHltSafeEle = false;
+	  bool matchTightEle   = false;
+	  for( unsigned int ElectronIndex = 0; ElectronIndex < ElectronPointers.size(); ElectronIndex++ ) {
+	    Ptr<flashgg::Electron> Electron = ElectronPointers[ElectronIndex];
+
+	    // acceptance
+	    float eleScEta = fabs( Electron->superCluster()->eta() );
+	    float elePt    = Electron->pt();
+	    if( (fabs(eleScEta)>1.442 && fabs(eleScEta)<1.566) || fabs(eleScEta)>2.5 ) continue;
+	    if( elePt<20 ) continue;
+	    if ( ((Electron->superCluster())->phi())==((g1->superCluster())->phi()) && ((Electron->superCluster())->eta())==((g1->superCluster())->eta()) ) {     // this electron matches the photon
+
+	      // electron id for electrons matching the probe
+	      float HoE = Electron->hcalOverEcal();
+	      float DeltaPhiIn  = Electron->deltaPhiSuperClusterTrackAtVtx();
+	      float DeltaEtaIn  = Electron->deltaEtaSuperClusterTrackAtVtx();
+	      float DeltaEtaOut = Electron->deltaEtaSeedClusterTrackAtCalo();
+	      float Full5x5Sieie = Electron->full5x5_sigmaIetaIeta(); 
+	      float ecalEne = Electron->ecalEnergy();
+	      float OneOverEoP;
+	      if (ecalEne==0) {
+		cout << "electron energy is zero!! " << endl;
+		OneOverEoP = 1000000.;
+	      } else {
+		OneOverEoP = 1.0/ecalEne - (Electron->eSuperClusterOverP())/ecalEne;
+	      }
+	      reco::GsfElectron::PflowIsolationVariables pfIso = Electron->pfIsolationVariables();
+	      float corrHadPlusPho = pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - rhoEle*effectiveAreaEle03(eleScEta);    
+	      if (corrHadPlusPho<=0) corrHadPlusPho = 0.;
+	      float absIsoWeffArea = pfIso.sumChargedHadronPt + corrHadPlusPho;
+	      float relIso = absIsoWeffArea/elePt;
+	      Ptr<reco::Vertex> Electron_vtx = chooseElectronVertex( Electron, vertexPointers );
+	      float d0 = Electron->gsfTrack()->dxy(Electron_vtx->position() );
+	      float dz = Electron->gsfTrack()->dz( Electron_vtx->position() );
+	      const reco::HitPattern &hitPattern = Electron->gsfTrack()->hitPattern();
+	      int mHits= hitPattern.numberOfHits(HitPattern::MISSING_INNER_HITS);
+	      bool passConversionVeto = !(Electron->hasMatchedConversion());
+	      matchHltSafeEle = isHLTSafeEle(eleScEta, HoE, DeltaPhiIn, DeltaEtaOut, Full5x5Sieie, OneOverEoP, relIso, mHits) ;                             
+	      matchTightEle   = isTightEle(eleScEta, HoE, DeltaPhiIn, DeltaEtaIn, Full5x5Sieie, OneOverEoP, d0, dz, relIso, mHits, passConversionVeto) ;
+	    }
+	    if (matchHltSafeEle || matchTightEle) continue;
+	  }
+
 	  gamma_pt.push_back(pt);
 	  gamma_eta.push_back(scEta);
 	  gamma_phi.push_back(g1->superCluster()->phi());
@@ -717,7 +763,8 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  gamma_matchHLT.push_back(matchHLT);       
 	  gamma_matchZHLT.push_back(matchZHLT);     
 	  gamma_matchMC.push_back(matchMC);
-
+	  gamma_matchHltSafeEle.push_back(matchHltSafeEle);
+	  gamma_matchTightEle.push_back(matchTightEle);
 	} // probe
 
       if (acceptGamma.size()>0 && !atLeastOneProbe) cout << "chiara: abbiamo un problema..." << endl;
@@ -794,6 +841,8 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   gamma_matchHLT.clear();
   gamma_matchZHLT.clear();
   gamma_matchMC.clear();
+  gamma_matchHltSafeEle.clear();
+  gamma_matchTightEle.clear();
 
   //---invariant mass
   invMass.clear();
@@ -879,7 +928,8 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("gamma_matchHLT", "std::vector<bool>", &gamma_matchHLT );
     outTree_->Branch("gamma_matchZHLT", "std::vector<bool>", &gamma_matchZHLT );
     outTree_->Branch("gamma_matchMC", "std::vector<bool>", &gamma_matchMC );
-
+    outTree_->Branch("gamma_matchHltSafeEle", "std::vector<bool>", &gamma_matchHltSafeEle );
+    outTree_->Branch("gamma_matchTightEle", "std::vector<bool>", &gamma_matchTightEle );
     outTree_->Branch("invMass","std::vector<float>", &invMass);
     outTree_->Branch("invMassRaw","std::vector<float>", &invMassRaw);
     outTree_->Branch("eleIndex","std::vector<int>", &eleIndex);
