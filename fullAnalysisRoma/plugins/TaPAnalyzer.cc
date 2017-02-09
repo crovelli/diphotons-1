@@ -114,6 +114,8 @@ private:
   edm::Service<TFileService> fs_;
   TTree* outTree_;
   
+  int    firedTnp1;
+  int    firedTnp2;
   int    run;
   int    event;
   int    lumi;
@@ -142,6 +144,7 @@ private:
   vector <bool>  isTagTightEle={};
   vector <bool>  isTagMediumEle={};
   vector <bool>  electron_matchHLT={};
+  vector <bool>  electron_matchHLTB={};
   vector <bool>  electron_matchZHLT={};
   vector <bool>  electron_matchMC={};
   
@@ -166,6 +169,7 @@ private:
   vector <int>   gamma_nm1hoe={};
   vector <int>   gamma_nm1sieie={};
   vector <bool>  gamma_matchHLT={};
+  vector <bool>  gamma_matchHLTB={};
   vector <bool>  gamma_matchZHLT={};
   vector <bool>  gamma_matchMC={};
   vector <bool>  gamma_matchHltSafeEle={};
@@ -309,13 +313,15 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 
   // selected HLT object
   vector<float >hltTnpPt, hltTnpEta, hltTnpPhi;
+  vector<float >hltTnpPtB, hltTnpEtaB, hltTnpPhiB;   // backup TnP path
   bool atLeastOneTag   = false;
   bool atLeastOneProbe = false;
     
   const edm::TriggerNames &names = iEvent.triggerNames(*triggerBits);
   
   // HLT paths for TnP
-  string theTnPPath = "HLT_Ele27_eta2p1_WPLoose_Gsf_v";    // 2016 data: 8x MC is without HLT 
+  string theTnPPath  = "HLT_Ele27_eta2p1_WPLoose_Gsf_v";            // 2016 data: 8x MC is without HLT 
+  string theTnPPathB = "HLT_Ele27_WPTight_Gsf_L1JetTauSeeded_v";    // backup
 
   // check if the event fired the TnP path
   bool fired = false;
@@ -331,33 +337,75 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
     fired = true;   // MC
   }
   
+  // check if the event fired the backup TnP path
+  bool firedB = false;
+  if (sampleID==0) {  // data only
+    for (unsigned int i = 0, n = triggerBits->size(); i < n; ++i) {
+      string thisPath = names.triggerName(i);      
+      if (thisPath.find(theTnPPathB)==string::npos) continue;
+      if (!triggerBits->accept(i)) continue;
+      firedB = true;
+    }
+  } else {
+    firedB = true;   // MC
+  }
+
+  firedTnp1 = fired;
+  firedTnp2 = firedB;
+
   if (sampleID==0) { 
 
-    if (fired) {   
+    if (fired || firedB) {   
       
       h_selection->Fill(1.,perEveW);
       
-      // HLT object firing the T&P path
-      for (pat::TriggerObjectStandAlone obj : *triggerObjects) {
-	obj.unpackPathNames(names);
-	
-	vector<string> pathNamesAll = obj.pathNames(false);
-	for (unsigned h = 0, n = pathNamesAll.size(); h < n; ++h) {
-	  string thisPath = pathNamesAll[h];
+      // HLT object firing the nominal T&P path
+      if (fired) {
+	for (pat::TriggerObjectStandAlone obj : *triggerObjects) {
+	  obj.unpackPathNames(names);
 	  
-	  // the object has to be associated to the last filter of a succesfully path
-	  bool isLF = obj.hasPathName( thisPath, true, false ); 
-	  if (!isLF) continue;
-	  
-	  // the fired path must be our TnP path
-	  if ( thisPath.find(theTnPPath)==string::npos) continue;
-	  
-	  hltTnpPt.push_back(obj.pt());
-	  hltTnpEta.push_back(obj.eta());
-	  hltTnpPhi.push_back(obj.phi());
-	}	  
+	  vector<string> pathNamesAll = obj.pathNames(false);
+	  for (unsigned h = 0, n = pathNamesAll.size(); h < n; ++h) {
+	    string thisPath = pathNamesAll[h];
+	    
+	    // the object has to be associated to the last filter of a succesfully path
+	    bool isLF = obj.hasPathName( thisPath, true, false ); 
+	    if (!isLF) continue;
+	    
+	    // the fired path must be our TnP path
+	    if ( thisPath.find(theTnPPath)==string::npos) continue;
+	    
+	    hltTnpPt.push_back(obj.pt());
+	    hltTnpEta.push_back(obj.eta());
+	    hltTnpPhi.push_back(obj.phi());
+	  }	  
+	}
       }
-    } 
+
+      // HLT object firing the backup T&P path
+      if (firedB) {
+	  for (pat::TriggerObjectStandAlone obj : *triggerObjects) {
+	    obj.unpackPathNames(names);
+	    
+	    vector<string> pathNamesAll = obj.pathNames(false);
+	    for (unsigned h = 0, n = pathNamesAll.size(); h < n; ++h) {
+	      string thisPath = pathNamesAll[h];
+	      
+	      // the object has to be associated to the last filter of a succesfully path
+	      bool isLF = obj.hasPathName( thisPath, true, false ); 
+	      if (!isLF) continue;
+	      
+	      // the fired path must be our TnP path
+	      if ( thisPath.find(theTnPPathB)==string::npos) continue;
+	      
+	      hltTnpPtB.push_back(obj.pt());
+	      hltTnpEtaB.push_back(obj.eta());
+	      hltTnpPhiB.push_back(obj.phi());
+	    }	  
+	  }
+	}
+
+    }   // OR fired 
   } else {
 
     h_selection->Fill(1.,perEveW);
@@ -366,7 +414,10 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   if (sampleID==0) 
     if (hltTnpPt.size()!=hltTnpEta.size() || hltTnpPt.size()!=hltTnpPhi.size()) cout << "problem!" << endl;
 
-  if ( hltTnpPt.size()>0 || sampleID>0 ) {  
+  if (sampleID==0) 
+    if (hltTnpPtB.size()!=hltTnpEtaB.size() || hltTnpPtB.size()!=hltTnpPhiB.size()) cout << "problem!" << endl;
+
+  if ( hltTnpPt.size()>0 || hltTnpPtB.size()>0 || sampleID>0 ) {  
     
     h_selection->Fill(2.,perEveW);
     
@@ -456,7 +507,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	}
       }
     
-
+    
       // ----------------------------------------------------  
       // 3) at least one tag candidate
       atLeastOneTag = false;
@@ -510,6 +561,23 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	      }
 	  } else {
 	    matchHLT = true;
+	  }
+
+	  // match with selected HLT objects for the backup TnP path
+	  bool matchHLTB = false;
+	  if (sampleID==0) {	    
+	    for (int hltTnpCB=0; hltTnpCB<(int)hltTnpPtB.size(); hltTnpCB++)
+	      {
+		TLorentzVector thisHLTob(0,0,0,0);  
+		float thisHLTpt  = hltTnpPtB[hltTnpCB];
+		float thisHLTeta = hltTnpEtaB[hltTnpCB];
+		float thisHLTphi = hltTnpPhiB[hltTnpCB];
+		thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
+		if(thisRecoEle.DeltaR(thisHLTob)<0.3)
+		  matchHLTB = true;
+	      }
+	  } else {
+	    matchHLTB = true;
 	  }
 
 	  // match with selected HLT objects for the Z control path
@@ -587,6 +655,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  isTagTightEle.push_back(tightEle);
 	  isTagMediumEle.push_back(mediumEle);
 	  electron_matchHLT.push_back(matchHLT);
+	  electron_matchHLTB.push_back(matchHLTB);   
 	  electron_matchZHLT.push_back(matchZHLT);  
 	  electron_matchMC.push_back(matchMC);                
 	}  // tag
@@ -643,6 +712,23 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	      }
 	  } else {
 	    matchHLT = true;
+	  }
+
+	  // match with selected HLT objects for the backup TnP path
+	  bool matchHLTB = false;
+	  if (sampleID==0) {	    
+	    for (int hltTnpCB=0; hltTnpCB<(int)hltTnpPtB.size(); hltTnpCB++)
+	      {
+		TLorentzVector thisHLTob(0,0,0,0);  
+		float thisHLTpt  = hltTnpPtB[hltTnpCB];
+		float thisHLTeta = hltTnpEtaB[hltTnpCB];
+		float thisHLTphi = hltTnpPhiB[hltTnpCB];
+		thisHLTob.SetPtEtaPhiM(thisHLTpt,thisHLTeta,thisHLTphi,0);
+		if(thisRecoGamma.DeltaR(thisHLTob)<0.3)
+		  matchHLTB = true;
+	      }
+	  } else {
+	    matchHLTB = true;
 	  }
 
 	  // match with selected HLT objects for the Z control path
@@ -761,6 +847,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	  gamma_nm1hoe.push_back(passNm1HoE);
 	  gamma_nm1sieie.push_back(passNm1Sieie);
 	  gamma_matchHLT.push_back(matchHLT);       
+	  gamma_matchHLTB.push_back(matchHLTB);       
 	  gamma_matchZHLT.push_back(matchZHLT);     
 	  gamma_matchMC.push_back(matchMC);
 	  gamma_matchHltSafeEle.push_back(matchHltSafeEle);
@@ -770,7 +857,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
       if (acceptGamma.size()>0 && !atLeastOneProbe) cout << "chiara: abbiamo un problema..." << endl;
 
     } // vertex
-  } // HLT    
+  }// HLT    
   accGammaSize = gamma_pt.size();   
       
   //---invariant mass and pt ratio
@@ -816,6 +903,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   isTagTightEle.clear();
   isTagMediumEle.clear();
   electron_matchHLT.clear();
+  electron_matchHLTB.clear();
   electron_matchZHLT.clear();
   electron_matchMC.clear();
   //---probe
@@ -839,6 +927,7 @@ void TaPAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
   gamma_nm1hoe.clear();
   gamma_nm1sieie.clear();
   gamma_matchHLT.clear();
+  gamma_matchHLTB.clear();
   gamma_matchZHLT.clear();
   gamma_matchMC.clear();
   gamma_matchHltSafeEle.clear();
@@ -873,7 +962,9 @@ void TaPAnalyzer::bookOutputTree()
     outTree_ = fs_->make<TTree>("TaPtree", "TaPtree");
     
     cout << "Booking branches" << endl;
-    
+
+    outTree_->Branch("firedTnp1", &firedTnp1, "firedTnp1/I");    
+    outTree_->Branch("firedTnp2", &firedTnp2, "firedTnp2/I");    
     outTree_->Branch("run", &run, "run/I");
     outTree_->Branch("event", &event, "event/I");
     outTree_->Branch("lumi", &lumi, "lumi/I");
@@ -902,6 +993,7 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("isTagTightEle", "std::vector<bool>", &isTagTightEle );
     outTree_->Branch("isTagMediumEle", "std::vector<bool>", &isTagMediumEle );
     outTree_->Branch("electron_matchHLT", "std::vector<bool>", &electron_matchHLT );
+    outTree_->Branch("electron_matchHLTB", "std::vector<bool>", &electron_matchHLTB );
     outTree_->Branch("electron_matchZHLT", "std::vector<bool>", &electron_matchZHLT );
     outTree_->Branch("electron_matchMC", "std::vector<bool>", &electron_matchMC );
  
@@ -926,6 +1018,7 @@ void TaPAnalyzer::bookOutputTree()
     outTree_->Branch("gamma_nm1hoe", "std::vector<int>", &gamma_nm1hoe);
     outTree_->Branch("gamma_nm1sieie", "std::vector<int>", &gamma_nm1sieie);
     outTree_->Branch("gamma_matchHLT", "std::vector<bool>", &gamma_matchHLT );
+    outTree_->Branch("gamma_matchHLTB", "std::vector<bool>", &gamma_matchHLTB );
     outTree_->Branch("gamma_matchZHLT", "std::vector<bool>", &gamma_matchZHLT );
     outTree_->Branch("gamma_matchMC", "std::vector<bool>", &gamma_matchMC );
     outTree_->Branch("gamma_matchHltSafeEle", "std::vector<bool>", &gamma_matchHltSafeEle );
