@@ -7,7 +7,7 @@
 #include "TColor.h"
 #include <iostream>
 
-const TString lumiString = "CMS Preliminary, #sqrt{s}=13 TeV, #intLdt=1.9 fb^{-1}";
+const TString lumiString = "CMS Preliminary, #sqrt{s}=13 TeV, #intLdt=7.6 fb^{-1}";
 
 const int nEtaBins = 8;   
 const double etaBinLimits[nEtaBins+1]  = {-2.5, -2., -1.5, -1., 0., 1., 1.5, 2., 2.5};
@@ -17,17 +17,17 @@ const double etaBinHalfWidth[nEtaBins] = { 0.25,  0.25,  0.25, 0.5, 0.5, 0.25, 0
 // ----------------------------------------
 // Data efficiencies and statistical errors
 double data[nEtaBins] = {
-  7.89948e-01, 7.49984e-01, 8.62455e-01, 8.59384e-01, 8.62066e-01, 8.65602e-01, 7.61567e-01, 7.95977e-01 
+  7.53395e-01, 7.34748e-01, 8.60041e-01, 8.57644e-01, 8.59578e-01, 8.62734e-01, 7.49101e-01, 7.63267e-01
 };
 
 // statistical only errors 
 double dataErrStat[nEtaBins] = {
-  1.56577e-03, 1.41776e-03, 9.96317e-04, 5.77391e-04, 5.66172e-04, 1.00516e-03, 1.51788e-03, 1.50448e-03
+  1.23510e-03, 1.08631e-03, 7.08574e-04, 4.29916e-04, 4.36057e-04, 7.88376e-04, 1.06330e-03, 1.19458e-03
 };
 
 // MC efficiencies and errors - C&C
 double mc[nEtaBins] = {
-  0.724601, 0.759899, 0.892286, 0.889741, 0.888193, 0.890842, 0.776299, 0.756487
+  0.726017, 0.761323, 0.892761, 0.890187, 0.888513, 0.891209, 0.777496, 0.757397
 };
 
 // statistical only errors 
