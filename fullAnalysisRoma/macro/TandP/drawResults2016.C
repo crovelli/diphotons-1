@@ -9,35 +9,26 @@
 #include "TColor.h"
 #include "TVirtualFitter.h"
 #include <iostream>
+#include "CMS_lumi.C"  
 
 bool wantSyst = true;
 
 const int nEtaBins = 1;
 
-const TString lumiString = "CMS Preliminary, #sqrt{s}=13 TeV, #intLdt=4.0 fb^{-1}";
+const TString lumiString = "CMS Preliminary, #sqrt{s}=13 TeV, #intLdt=13 fb^{-1}";
 
 // EB
-const int nPtBinsEB = 10;   
-const double ptBinLimitsEB[nPtBinsEB+1]  = {20., 30., 40., 50., 60., 80., 110., 150., 200.,270.,350.};
-const double ptBinCentersEB[nPtBinsEB]   = {25., 35., 45., 55., 70., 95., 130., 175., 235., 310.};
-const double ptBinHalfWidthEB[nPtBinsEB] = { 5.,  5.,  5.,  5., 10., 15.,  20.,  25., 35.,  40.};
+const int nPtBinsEB = 11;   
+const double ptBinLimitsEB[nPtBinsEB+1]  = {20., 30., 40., 50., 60., 80., 110., 150., 200., 270.,350.,500};
+const double ptBinCentersEB[nPtBinsEB]   = {25., 35., 45., 55., 70., 95., 130., 175., 235., 310.,425};
+const double ptBinHalfWidthEB[nPtBinsEB] = { 5.,  5.,  5.,  5., 10., 15.,  20.,  25., 35.,   40., 75.};
 const TString etaLimitsStringArrayEB[nEtaBins] = { "0. < |#eta| < 1.4442" };
-//const int nPtBinsEB = 9;   
-//const double ptBinLimitsEB[nPtBinsEB+1]  = {20., 30., 40., 50., 60., 80., 110., 150., 200.,270.};
-//const double ptBinCentersEB[nPtBinsEB]   = {25., 35., 45., 55., 70., 95., 130., 175., 235.};
-//const double ptBinHalfWidthEB[nPtBinsEB] = { 5.,  5.,  5.,  5., 10., 15.,  20.,  25., 35.};
-//const TString etaLimitsStringArrayEB[nEtaBins] = { "0. < |#eta| < 1.4442" };
 
 // EE
-//const int nPtBinsEE = 8;
-//const double ptBinLimitsEE[nPtBinsEE+1]  = {20., 30., 40., 50., 60., 80., 110., 150., 200.};
-//const double ptBinCentersEE[nPtBinsEE]   = {25., 35., 45., 55., 70., 95., 130., 175.};
-//const double ptBinHalfWidthEE[nPtBinsEE] = { 5.,  5.,  5.,  5., 10., 15.,  20.,  25.};
-//const TString etaLimitsStringArrayEE[nEtaBins] = { "1.566 < |#eta| < 2.5" };
 const int nPtBinsEE = 9;
-const double ptBinLimitsEE[nPtBinsEE+1]  = {20., 30., 40., 50., 60., 80., 110., 150., 200.,350.};
-const double ptBinCentersEE[nPtBinsEE]   = {25., 35., 45., 55., 70., 95., 130., 175., 275.};
-const double ptBinHalfWidthEE[nPtBinsEE] = { 5.,  5.,  5.,  5., 10., 15.,  20.,  25., 75.};
+const double ptBinLimitsEE[nPtBinsEE+1]  = {20., 30., 40., 50., 60., 80., 110., 150., 200.,500.};
+const double ptBinCentersEE[nPtBinsEE]   = {25., 35., 45., 55., 70., 95., 130., 175., 350.};
+const double ptBinHalfWidthEE[nPtBinsEE] = { 5.,  5.,  5.,  5., 10., 15.,  20.,  25., 150.};
 const TString etaLimitsStringArrayEE[nEtaBins] = { "1.566 < |#eta| < 2.5" };
 
 
@@ -45,34 +36,28 @@ const TString etaLimitsStringArrayEE[nEtaBins] = { "1.566 < |#eta| < 2.5" };
 // Data efficiencies and statistical errors
 double dataEB[nEtaBins][nPtBinsEB] = {
   { 
-    7.91251e-01, 8.52342e-01, 8.82546e-01, 8.83756e-01, 8.79436e-01, 8.83524e-01, 8.85466e-01, 8.98044e-01, 8.86877e-01, 8.52180e-01
+    7.84238e-01, 8.46584e-01, 8.77542e-01, 8.77574e-01, 8.73321e-01, 8.77443e-01, 8.86191e-01, 8.89171e-01, 8.75195e-01, 8.98198e-01, 8.73515e-01
   }
 };
 
 double dataEE[nEtaBins][nPtBinsEE] = {
   { 
-    // |eta|<2.5
-    // 6.93590e-01, 7.66276e-01, 8.02283e-01, 8.15095e-01, 8.28115e-01, 8.41396e-01, 8.30929e-01, 8.44886e-01, 8.96420e-01 
-
     // |eta|<2.1
-    6.67763e-01, 7.47609e-01, 7.91513e-01, 8.09517e-01, 8.18605e-01, 8.39861e-01, 8.35895e-01, 8.36613e-01, 8.98649e-01
+    6.20179e-01, 7.05897e-01, 7.54700e-01, 7.70225e-01, 7.81581e-01, 8.04237e-01, 8.13097e-01, 8.18896e-01, 8.96130e-01
   }
 };
 
 // statistical only errors 
 double dataErrStatEB[nEtaBins][nPtBinsEB] = {
   { 
-    1.77659e-03, 7.32544e-04, 4.30639e-04, 1.03912e-03, 1.92876e-03, 3.91642e-03, 6.39313e-03, 1.00293e-02, 1.45479e-02, 2.48560e-02
+    1.06615e-03, 3.63838e-04, 2.40657e-04, 5.26817e-04, 1.15332e-03, 2.36493e-03, 3.66556e-03, 5.88983e-03, 8.97460e-03, 1.49987e-02, 2.59785e-02
   }
 };
 
 double dataErrStatEE[nEtaBins][nPtBinsEE] = {
   { 
-    // |eta|<2.5    
-    // 2.26404e-03, 1.14846e-03, 1.27566e-04, 2.54440e-03, 4.39143e-03, 8.51082e-03, 1.30638e-02, 1.87204e-02, 2.32021e-02
-
     // |eta|<2.1  
-    2.89224e-03, 1.42109e-03, 1.27520e-03, 2.79981e-03, 5.34937e-03, 9.76875e-03, 1.49404e-02, 2.40042e-02, 2.45539e-02
+    1.66929e-03, 8.98308e-04, 7.53260e-04, 1.91262e-03, 3.34496e-03, 6.23006e-03, 9.66453e-03, 1.68467e-02, 1.75225e-02
   }
 };
 
@@ -81,14 +66,14 @@ double dataErrStatEE[nEtaBins][nPtBinsEE] = {
 // alternative fit changing the signal model and keeping nominal background
 double dataSystSigEB[nEtaBins][nPtBinsEB] = {
   { 
-    8.20592e-01, 8.50285e-01, 8.81259e-01, 8.86457e-01, 8.89836e-01, 8.98114e-01, 8.89983e-01, 9.02391e-01, 8.75210e-01, 8.25859e-01
+    8.13976e-01, 8.44814e-01, 8.76156e-01, 8.80926e-01, 8.84732e-01, 8.89137e-01, 8.95364e-01, 8.94070e-01, 8.84600e-01, 8.71244e-01, 8.80310e-01
   }
 };
 
 double dataSystSigEE[nEtaBins][nPtBinsEE] = {
   { 
     // |eta|<2.1  
-    6.83923e-01, 7.54630e-01, 7.88666e-01, 8.10450e-01, 8.26529e-01, 8.49273e-01, 8.41623e-01, 8.18942e-01, 9.00141e-01
+    6.37695e-01, 7.04206e-01, 7.51504e-01, 7.71790e-01, 7.90860e-01, 8.10526e-01, 8.24633e-01, 8.34806e-01, 8.79918e-01 
   }
 };
 
@@ -97,14 +82,14 @@ double dataSystSigEE[nEtaBins][nPtBinsEE] = {
 // alternative fit changing the background model and keeping nominal signal
 double dataSystBackEB[nEtaBins][nPtBinsEB] = {
   { 
-    8.01937e-01, 8.52328e-01, 8.82587e-01, 8.84032e-01, 8.79999e-01, 8.83986e-01, 8.85510e-01, 9.04938e-01, 8.91095e-01, 8.52497e-01
+    7.83633e-01, 8.46516e-01, 8.77563e-01, 8.77433e-01, 8.73784e-01, 8.78540e-01, 8.79069e-01, 8.92647e-01, 8.75184e-01, 8.95998e-01, 8.74536e-01
   }
 };
 
 double dataSystBackEE[nEtaBins][nPtBinsEE] = {
   { 
     // |eta|<2.1   
-    6.68713e-01, 7.47641e-01, 7.91769e-01, 8.09870e-01, 8.20948e-01, 8.46312e-01, 8.35896e-01, 8.37405e-01, 9.03088e-01
+    6.20183e-01, 7.05990e-01, 7.54718e-01, 7.71216e-01, 7.82044e-01, 8.03612e-01, 8.13092e-01, 8.19945e-01, 8.96035e-01
   }
 };
 
@@ -113,30 +98,27 @@ double dataSystBackEE[nEtaBins][nPtBinsEE] = {
 // MC efficiencies and errors - C&C
 double mcEB[nEtaBins][nPtBinsEB] = {
   { 
-    0.832083, 0.880983, 0.908311, 0.910573, 0.910272, 0.910244, 0.914513, 0.915982, 0.928903, 0.926116
+    0.833111, 0.881972, 0.909174, 0.911494, 0.910917, 0.910746, 0.915781, 0.915968, 0.925614, 0.923827, 0.925482
   }
 };
 
 double mcEE[nEtaBins][nPtBinsEE] = {
   { 
-    // |eta|<2.5   
-    // 0.68196, 0.74986, 0.788325, 0.805504, 0.818779, 0.838306, 0.850299, 0.882256, 0.894807
-
     // |eta|<2.1
-    0.68177,  0.7528,   0.795943, 0.813491, 0.828562, 0.851386, 0.864961, 0.891915, 0.914476
+    0.687004, 0.758561, 0.801243, 0.81818, 0.831907, 0.854862, 0.867198, 0.895834, 0.916681
   }
 };
 
 // statistical only errors - 218pb
 double mcErrEB[nEtaBins][nPtBinsEB] = {
   { 
-    0.00028343, 0.000149217, 0.000129587, 0.000274898, 0.000460165, 0.000945207, 0.00162603, 0.00266309, 0.0041, 0.0074   // ultimi due ottenuti dividendo moriond per 1.7, che e' il rapporto tra i due nei bin precedenti
+    0.00028343, 0.000149217, 0.000129587, 0.000274898, 0.000460165, 0.000945207, 0.00162603, 0.00266309, 0.0041, 0.0074, 0.011
   }
 };
 
 double mcErrEE[nEtaBins][nPtBinsEE] = {
   { 
-    0.00057193, 0.000345498, 0.000318749, 0.000676631, 0.00113528, 0.00227925, 0.00399321, 0.00638182, 0.008    // ultimi ottenuti dividendo moriond per 1.7. Uso gli stessi anche per |eta|<2.1
+    0.00057193, 0.000345498, 0.000318749, 0.000676631, 0.00113528, 0.00227925, 0.00399321, 0.00638182, 0.01    
   }
 };
 
@@ -315,7 +297,7 @@ void drawResults(){
     grSfEB->SetMarkerStyle(20);
     grSfEB->SetMarkerColor(kGreen+4);
     grSfEB->SetMarkerSize(1.);
-    grSfEB->Fit("pol0","","",20,350);
+    grSfEB->Fit("pol0","","",20,500);
 
     ci = TColor::GetColor("#99ccff");
     grSfEE->SetFillColor(kGreen-8);
@@ -324,11 +306,11 @@ void drawResults(){
     grSfEE->SetMarkerStyle(20);
     grSfEE->SetMarkerColor(kGreen+4);
     grSfEE->SetMarkerSize(1.);
-    grSfEE->Fit("pol0","","",20,350);
+    grSfEE->Fit("pol0","","",20,500);
 
     // Create and configure the dummy histograms on which to draw the graphs
-    // TH2F *h1 = new TH2F("dummy1","", 100, 0, 500, 100, 0.6, 1.1);
-    TH2F *h1 = new TH2F("dummy1","", 100, 0, 350, 100, 0.6, 1.1);
+    TH2F *h1 = new TH2F("dummy1","", 100, 0, 500, 100, 0.6, 1.1);
+    //TH2F *h1 = new TH2F("dummy1","", 100, 0, 350, 100, 0.6, 1.1);
     h1->GetYaxis()->SetTitle("Efficiency");
     h1->SetStats(0);
     h1->GetXaxis()->SetLabelSize(0);
@@ -336,9 +318,9 @@ void drawResults(){
     h1->GetXaxis()->SetDecimals();
     h1->GetYaxis()->SetTitleOffset(0.8);
     h1->GetYaxis()->SetTitleSize(0.05);
-    //TH2F *h2 = new TH2F("dummy2","", 100, 0, 500, 100, 0.8, 1.2);
-    TH2F *h2 = new TH2F("dummy2","", 100, 0, 350, 100, 0.8, 1.2);
-    h2->GetXaxis()->SetTitle("p_{T} [GeV]");
+    TH2F *h2 = new TH2F("dummy2","", 100, 0, 500, 100, 0.8, 1.2);
+    //TH2F *h2 = new TH2F("dummy2","", 100, 0, 350, 100, 0.8, 1.2);
+    h2->GetXaxis()->SetTitle("p_{T} (GeV)");
     h2->GetYaxis()->SetTitle("Scale Factor");
     h2->GetXaxis()->SetTitleOffset(1.0);
     h2->GetXaxis()->SetTitleSize(0.1);
@@ -350,12 +332,13 @@ void drawResults(){
     h2->GetYaxis()->SetDecimals();
     h2->SetStats(0);
 
-    TLegend *leg = new TLegend(0.65,0.1,0.9,0.25);
-    leg->SetFillColor(kWhite);
+    TLegend *leg = new TLegend(0.65,0.1,0.9,0.25,"Z #rightarrow ee");
+    leg->SetFillColor(0);
     leg->SetFillStyle(0);
+    leg->SetTextSize(0.04);
     leg->SetBorderSize(0);
-    leg->AddEntry(grDataEB, "Data", "pl");
-    leg->AddEntry(grMcEB, "Simulation DY", "pFlE");
+    leg->AddEntry(grDataEB, "data", "pl");
+    leg->AddEntry(grMcEB, "simulation", "pFlE");
 
     TLatex *latLumi = new TLatex(0, 1.15, lumiString);
 
@@ -372,8 +355,9 @@ void drawResults(){
     grMcEB  ->Draw("pZ,same");
     grDataEB->Draw("PEZ,same");
     leg->Draw("same");
+    CMS_lumi(c1,4,1);   
     latEtaEB->Draw("same");
-    latLumi->Draw("same");
+    // latLumi->Draw("same");
     // Draw the scale factors
     pad2->cd();
     h2->Draw();
@@ -383,6 +367,12 @@ void drawResults(){
     TString fname = cname;
     fname += "_EB.pdf";
     c1->Print(fname);
+    TString fname2 = cname;
+    fname2 += "_EB.png";
+    c1->Print(fname2);
+    TString fname3 = cname;
+    fname3 += "_EB.root";
+    c1->Print(fname3);
 
     // --------------------------------------
     // EE
@@ -394,7 +384,8 @@ void drawResults(){
     grDataEE->Draw("PEZ,same");
     leg->Draw("same");
     latEtaEE->Draw("same");
-    latLumi->Draw("same");
+    // latLumi->Draw("same");
+    CMS_lumi(c1,4,1);  
     // Draw the scale factors
     pad2->cd();
     h2->Draw();
@@ -404,6 +395,12 @@ void drawResults(){
     fname = cname;
     fname += "_EE.pdf";
     c1->Print(fname);
+    fname2 = cname;
+    fname2 += "_EE.root";
+    c1->Print(fname2);
+    fname3 = cname;
+    fname3 += "_EE.png";
+    c1->Print(fname3);
   }
 
 
