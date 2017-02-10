@@ -14,8 +14,8 @@
 #include <iostream>
 
 #define NSPECIES 2
-//#define NVARIABLES 7
-#define NVARIABLES 3
+#define NVARIABLES 7
+//#define NVARIABLES 3
 #define NCUTS 2
 
 void makeDataMcPlotsTnP(float lumi, bool blindData=false)
@@ -42,8 +42,8 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
 
   // chiara
   TString files[NSPECIES];
-  files[0]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_SingleElectron.root";
-  files[1]="/cmsrm/pc28_2/crovelli/data/Exo/Formatted_DYToEE_NNPDF30_13TeV.root";
+  files[0]="/cmsrm/pc28_2/crovelli/data/Exo/lastTopup/Formatted_output_SingleElectron.root";
+  files[1]="/cmsrm/pc28_2/crovelli/data/Exo/lastTopup/Formatted_output_DYToEE_NNPDF30_13TeV-powheg-pythia8__63mb.root";
 
   TString plotsDir="./tnpPlots/";
   TFile* fOut=new TFile("tnpHistos_"+suffix+".root","RECREATE");
@@ -53,10 +53,11 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   
   // chiara
   TString variables[NVARIABLES];
+  /*
   variables[0]="mass";
   variables[1]="nvtx";
   variables[2]="rho";
-  /*
+  */
   variables[0]="probe_chiso";    
   variables[1]="probe_phoiso";    
   variables[2]="probe_corrphoiso";    
@@ -64,14 +65,14 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   variables[4]="probe_hoe";    
   variables[5]="probe_pt";
   variables[6]="probe_eta";
-  */
 
   // chiara
   TString units[NVARIABLES];
+  /*
   units[0]="GeV";
   units[1]="";
   units[2]="";
-  /*
+  */
   units[0]="GeV";
   units[1]="GeV";
   units[2]="GeV";
@@ -79,54 +80,54 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   units[4]="";  
   units[5]="GeV";
   units[6]="";  
-  */
 
   // chiara
   int nbins[NVARIABLES];
+  /*
   nbins[0]=80;
   nbins[1]=50;
   nbins[2]=50;
-  /*
+  */
   nbins[0]=80;
   nbins[1]=80;
   nbins[2]=80;
   nbins[3]=80;
   nbins[4]=80;
-  nbins[5]=100;
+  nbins[5]=100;   // 50 xlin, 100 x log
   nbins[6]=50;
-  */
 
   // chiara
   float range[NVARIABLES][2]; // N variables, min, max
+  /*
   range[0][0]=70.;
   range[0][1]=110.;
   range[1][0]=0.;
   range[1][1]=50.;
   range[2][0]=0.;
   range[2][1]=50.;
-  /*
+  */
   range[0][0]=0.;
   range[0][1]=5.;       
   range[1][0]=0.;
   range[1][1]=5.;   
   range[2][0]=-2.;
   range[2][1]=5.; 
-  range[3][0]=0.00;     // 0.01 or  0.0
-  range[3][1]=0.02;     // 0.04 or  0.02
+  range[3][0]=0.01;     // 0.01 or  0.0
+  range[3][1]=0.04;     // 0.04 or  0.02
   range[4][0]=0.;
   range[4][1]=0.05;   
   range[5][0]=0.;
-  range[5][1]=400.;
+  range[5][1]=400.;     // 120 x lin, 400 x log
   range[6][0]=-2.5;
   range[6][1]=2.5;
-  */
 
   // chiara
   TString xaxisLabel[NVARIABLES];
+  /*
   xaxisLabel[0]="m_{ee}";
   xaxisLabel[1]="number of vertices";
   xaxisLabel[2]="rho";
-  /*
+  */
   xaxisLabel[0]="chIso";
   xaxisLabel[1]="phIso";
   xaxisLabel[2]="correctedPhIso";
@@ -134,7 +135,6 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   xaxisLabel[4]="H/E";
   xaxisLabel[5]="p_{T} probe";
   xaxisLabel[6]="#eta probe";
-  */
 
   TString binSize[NVARIABLES];
 
@@ -155,16 +155,16 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
   // chiara
   TString cut[NCUTS];
   // selection for event distributions (mass, #vertices, rho)
-  cut[0]="(mass>70 && mass<110 && tag_absEta<1.5 && probe_absEta<1.5)*";
-  cut[1]="(mass>70 && mass<110 && ( (tag_absEta<1.5 && probe_absEta>1.5) || (tag_absEta>1.5 && probe_absEta<1.5) ) )*";
+  //cut[0]="(mass>70 && mass<110 && tag_absEta<1.5 && probe_absEta<1.5)*";
+  //cut[1]="(mass>70 && mass<110 && ( (tag_absEta<1.5 && probe_absEta>1.5) || (tag_absEta>1.5 && probe_absEta<1.5) ) )*";
   //cut[0]="(probe_fullsel && mass>70 && mass<110 && tag_absEta<1.5 && probe_absEta<1.5)*";
   //cut[1]="(probe_fullsel && mass>70 && mass<110 && ( (tag_absEta<1.5 && probe_absEta>1.5) || (tag_absEta>1.5 && probe_absEta<1.5) ) )*";
   //cut[0]="(probe_presel && mass>70 && mass<110 && tag_absEta<1.5 && probe_absEta<1.5)*";
   //cut[1]="(probe_presel && mass>70 && mass<110 && ( (tag_absEta<1.5 && probe_absEta>1.5) || (tag_absEta>1.5 && probe_absEta<1.5) ) )*";
 
   // selection for probe distributions
-  // cut[0]="(mass>70 && mass<110 && probe_absEta<1.5)*";
-  // cut[1]="(mass>70 && mass<110 && probe_absEta>1.5 && tag_absEta<1.5)*";
+  cut[0]="(mass>70 && mass<110 && probe_absEta<1.5)*";
+  cut[1]="(mass>70 && mass<110 && probe_absEta>1.5 && tag_absEta<1.5 && probe_absEta<2.1)*";
   //cut[0]="(mass>70 && mass<110 && probe_absEta<1.5 && run>274388)*";
   //cut[1]="(mass>70 && mass<110 && probe_absEta>1.5 && tag_absEta<1.5 && run>274388)*";
   //cut[0]="(probe_nm1phiso && mass>70 && mass<110 && probe_absEta<1.5)*";
@@ -251,6 +251,7 @@ void makeDataMcPlotsTnP(float lumi, bool blindData=false)
       
       c2->SetLogy(1);
       myPlot.Draw();
+      CMS_lumi(c1,4,1);
       c2->GetFrame()->DrawClone();
       c2->SaveAs(plotsDir+variables[z]+"DataMc_"+TString(icut[j])+"_"+suffix+"_log.png");
       c2->SaveAs(plotsDir+variables[z]+"DataMc_"+TString(icut[j])+"_"+suffix+"_log.root");
