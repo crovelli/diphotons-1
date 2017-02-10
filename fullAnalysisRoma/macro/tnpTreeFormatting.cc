@@ -27,7 +27,7 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
   TTree *treeOrig = 0;
   TH1F  *h_sumW = 0;
 
-  fileOrig = TFile::Open(TString("/cmsrm/pc28_2/crovelli/data/Exo/lastTopupOR/")+TString(filename));
+  fileOrig = TFile::Open(TString("/cmsrm/pc28_2/crovelli/data/Exo/lastTopup/")+TString(filename));
   if( fileOrig ) {
     fileOrig->cd();
     treeOrig = (TTree*)fileOrig->Get("tnpAna/TaPtree");
@@ -273,8 +273,6 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
     if (i%10000 == 0) std::cout << ">>> Event # " << i << " / " << nentriesOrig << " entries" << std::endl; 
     treeOrig->GetEntry(i);
 
-    // if (run<=275125) continue;
-
     for (unsigned int ii=0; ii<invMass->size(); ii++) {
       
       mass = (float)(invMass->at(ii));
@@ -368,9 +366,6 @@ void tnpTreeFormat(const char* filename, float lumiForW) {
       probe_chiso = gamma_chiso->at(gammaIndex->at(ii)); 
       probe_phoiso = gamma_phoiso->at(gammaIndex->at(ii)); 
       probe_corrphoiso = gamma_corrphoiso->at(gammaIndex->at(ii)); 
-
-      // if (probe_absEta<1.5 || probe_absEta>2.1) continue;
-      // if (probe_absEta>1.5) continue;
 
       // weights
       if (run==1) {   // MC                                                                                                                   
